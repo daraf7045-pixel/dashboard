@@ -43,6 +43,10 @@ tr:hover td{background:#f8fafc}
 .mname{font-weight:600}
 .zero{color:#cbd5e1}
 .money{color:#16a34a;font-weight:600}
+.plan-done{color:#16a34a;font-weight:600}
+.plan-left{color:#ef4444;font-weight:600}
+.plan-left-txt{color:#ef4444}
+.red{color:#ef4444}
 /* Карточки менеджеров (мобиль) */
 .mgr-cards{display:none;flex-direction:column;gap:10px;margin-bottom:16px}
 .mgr-card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
@@ -68,7 +72,6 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
   .meta{font-size:11px}
   .btn{padding:8px 14px;font-size:13px}
   .kpi{grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
-  .kpi-card:last-child{grid-column:span 2}
   .kpi-card{padding:12px 14px;border-radius:9px}
   .kpi-card .val{font-size:18px}
   /* Прячем таблицу, показываем карточки */
@@ -106,6 +109,7 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
         <th>Подтверждено</th>
         <th>Реализовано</th>
         <th>Задачи</th>
+        <th>Остаток плана</th>
       </tr></thead>
       <tbody id="tbody"></tbody>
     </table>
@@ -126,6 +130,16 @@ const MANAGERS = [
   { name: 'Воронежцева Алина', id: '9174'  },
   { name: 'Айсина Динара',     id: '14262' },
 ];
+// Планы продаж по менеджерам: id → { месяц: сумма }
+const PLANS = {
+  '12752': { 5: 2070000, 6: 2802000 },   // Анна
+  '9174':  { 5: 2250000, 6: 3104000 },   // Алина
+  '14262': { 5: 1440000, 6: 1928000 },   // Динара
+};
+function currentPlan(userId) {
+  const m = mskNow().getMonth() + 1;
+  return PLANS[userId]?.[m] || 0;
+}
 
 // ── Утилиты ─────────────────────────────────────────────────────────────────
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -153,6 +167,16 @@ function fmtMoney(n) {
   return Math.round(n).toLocaleString('ru-RU') + ' ₽';
 }
 function fmtNum(n) { return n ? String(n) : '—'; }
+function monthStartMSK() {
+  const d = mskNow();
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-01T00:00:00+03:00`;
+}
+function monthEndMSK() {
+  const d = mskNow();
+  const y = d.getFullYear(), m = d.getMonth() + 1;
+  const next = m === 12 ? `${y+1}-01` : `${y}-${pad(m+1)}`;
+  return `${next}-01T00:00:00+03:00`;
+}
 
 // ── Bitrix24 API ─────────────────────────────────────────────────────────────
 function flatQS(obj, prefix='') {
@@ -289,6 +313,27 @@ async function getTasks(userId, fromTime, today) {
   return count;
 }
 
+// Загружает ID сделок, реализованных за весь текущий месяц (для расчёта плана)
+async function loadMonthlyWonIds() {
+  const items = await paginateAll('crm.stagehistory.list', {
+    entityTypeId: 2,
+    filter: { '>=CREATED_TIME': monthStartMSK(), '<CREATED_TIME': monthEndMSK() },
+    select: ['OWNER_ID', 'STAGE_ID', 'CATEGORY_ID'],
+  });
+  const ids = new Set();
+  for (const item of items)
+    if (item.STAGE_ID === REALIZED && String(item.CATEGORY_ID) === String(CATEGORY_ID))
+      ids.add(String(item.OWNER_ID));
+  return ids;
+}
+
+async function getMonthlyRealized(userId, wonIds) {
+  const deals = await stageDeals(wonIds, userId, ['MODIFY_BY_ID']);
+  return deals
+    .filter(d => String(d.MODIFY_BY_ID) === String(userId))
+    .reduce((s, d) => s + parseFloat(d.OPPORTUNITY || 0), 0);
+}
+
 async function collectOne(userId, fromTime, today, confirmedIds, realizedIds) {
   const [calls, newDeals, confirmed, realized, tasks] = await Promise.all([
     getCalls(userId, fromTime, today),
@@ -329,21 +374,29 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
   const totals = { calls:0, newDeals:0, confirmedSum:0, realizedSum:0, tasks:0 };
   for (const { m } of managers) if (m) for (const k of Object.keys(totals)) totals[k] += m[k]||0;
 
+  const totalRemaining = managers.reduce((s,{m}) => s + (m?.remaining||0), 0);
+  const totalPlan      = managers.reduce((s,{m}) => s + (m?.plan||0), 0);
+  const remCls = totalRemaining <= 0 ? 'green' : 'red';
   document.getElementById('kpi').innerHTML = `
     <div class="kpi-card"><div class="lbl">Звонки &gt;40с</div><div class="val blue">${fmtNum(totals.calls)}</div></div>
     <div class="kpi-card"><div class="lbl">Новые сделки</div><div class="val blue">${fmtNum(totals.newDeals)}</div></div>
     <div class="kpi-card"><div class="lbl">Подтверждено</div><div class="val green">${fmtMoney(totals.confirmedSum)}</div></div>
     <div class="kpi-card"><div class="lbl">Реализовано</div><div class="val green">${fmtMoney(totals.realizedSum)}</div></div>
     <div class="kpi-card"><div class="lbl">Задачи</div><div class="val blue">${fmtNum(totals.tasks)}</div></div>
+    <div class="kpi-card"><div class="lbl">Остаток плана (месяц)</div><div class="val ${remCls}">${totalRemaining<=0?'✓ Выполнен':fmtMoney(totalRemaining)}</div></div>
   `;
 
   const sorted = [...managers].sort((a,b) => ((b.m||{}).realizedSum||0) - ((a.m||{}).realizedSum||0));
 
   // Таблица (десктоп)
   document.getElementById('tbody').innerHTML = sorted.map(({ name, m }) => {
-    if (!m) return `<tr><td class="mname">${name}</td><td colspan="5" class="zero">—</td></tr>`;
+    if (!m) return `<tr><td class="mname">${name}</td><td colspan="6" class="zero">—</td></tr>`;
     const td = (v, fn=fmtNum) => { const s=fn(v); return `<td class="${s==='—'?'zero':fn===fmtMoney&&s!=='—'?'money':''}">${s}</td>`; };
-    return `<tr><td class="mname">${name}</td>${td(m.calls)}${td(m.newDeals)}${td(m.confirmedSum,fmtMoney)}${td(m.realizedSum,fmtMoney)}${td(m.tasks)}</tr>`;
+    const rem = m.remaining;
+    const remTd = rem <= 0
+      ? `<td class="plan-done">✓ Выполнен</td>`
+      : `<td class="plan-left">${fmtMoney(rem)}</td>`;
+    return `<tr><td class="mname">${name}</td>${td(m.calls)}${td(m.newDeals)}${td(m.confirmedSum,fmtMoney)}${td(m.realizedSum,fmtMoney)}${td(m.tasks)}${remTd}</tr>`;
   }).join('');
 
   // Карточки (мобиль)
@@ -352,6 +405,9 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
   document.getElementById('mgrCards').innerHTML = sorted.map(({ name, m }) => {
     if (!m) return `<div class="mgr-card"><div class="mgr-card-name">${name}</div><div class="mgr-row"><span class="rl">Нет данных</span></div></div>`;
     const c = (v,fn=fmtNum) => { const s=fn(v); return s==='—'?'zero':fn===fmtMoney&&s!=='—'?'money':''; };
+    const rem = m.remaining;
+    const remVal = rem <= 0 ? '✓ Выполнен' : fmtMoney(rem);
+    const remCls = rem <= 0 ? 'money' : 'plan-left-txt';
     return `<div class="mgr-card">
       <div class="mgr-card-name">${name}</div>
       ${row('Звонки &gt;40с', fmtNum(m.calls), c(m.calls))}
@@ -359,6 +415,7 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
       ${row('Подтверждено', fmtMoney(m.confirmedSum), c(m.confirmedSum,fmtMoney))}
       ${row('Реализовано', fmtMoney(m.realizedSum), c(m.realizedSum,fmtMoney))}
       ${row('Задачи', fmtNum(m.tasks), c(m.tasks))}
+      ${row('Остаток плана', remVal, remCls)}
     </div>`;
   }).join('');
 
@@ -392,7 +449,10 @@ async function refresh() {
     setStatus(isFirst ? 'Первый сбор за сегодня (с 00:00 МСК)...' : `Обновление с ${fromTime.slice(11,16)} МСК...`);
 
     setStatus('Загрузка переходов по стадиям...');
-    const transitions = await loadTransitions(fromTime, today);
+    const [transitions, monthlyWonIds] = await Promise.all([
+      loadTransitions(fromTime, today),
+      loadMonthlyWonIds(),
+    ]);
     const confirmedIds = transitions[CONFIRMED] || new Set();
     const realizedIds  = transitions[REALIZED]  || new Set();
 
@@ -401,14 +461,21 @@ async function refresh() {
 
     for (const mgr of MANAGERS) {
       setStatus(`Сбор данных: ${mgr.name}...`);
-      const delta = await collectOne(mgr.id, fromTime, today, confirmedIds, realizedIds);
+      const [delta, monthReal] = await Promise.all([
+        collectOne(mgr.id, fromTime, today, confirmedIds, realizedIds),
+        getMonthlyRealized(mgr.id, monthlyWonIds),
+      ]);
       const prev  = accumulated[mgr.id] || { calls:0, newDeals:0, confirmedSum:0, realizedSum:0, tasks:0 };
+      const plan  = currentPlan(mgr.id);
       const merged = {
-        calls:        prev.calls        + delta.calls,
-        newDeals:     prev.newDeals     + delta.newDeals,
-        confirmedSum: prev.confirmedSum + delta.confirmedSum,
-        realizedSum:  prev.realizedSum  + delta.realizedSum,
-        tasks:        prev.tasks        + delta.tasks,
+        calls:           prev.calls        + delta.calls,
+        newDeals:        prev.newDeals     + delta.newDeals,
+        confirmedSum:    prev.confirmedSum + delta.confirmedSum,
+        realizedSum:     prev.realizedSum  + delta.realizedSum,
+        tasks:           prev.tasks        + delta.tasks,
+        monthlyRealized: monthReal,
+        plan:            plan,
+        remaining:       plan - monthReal,
       };
       accumulated[mgr.id] = merged;
       results.push({ name: mgr.name, m: merged });
