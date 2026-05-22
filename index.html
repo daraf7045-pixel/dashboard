@@ -25,11 +25,13 @@ header h1{font-size:18px;font-weight:700;color:#0f172a}
 .spinner{width:18px;height:18px;border:2px solid #e2e8f0;border-top-color:#2563eb;
          border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
 @keyframes spin{to{transform:rotate(360deg)}}
-.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+/* KPI */
+.kpi{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
 .kpi-card{background:#fff;border-radius:10px;padding:16px 18px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
 .kpi-card .lbl{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
 .kpi-card .val{font-size:20px;font-weight:700}
 .blue{color:#2563eb}.green{color:#16a34a}
+/* Таблица (десктоп) */
 table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;
       overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:16px}
 thead tr{background:#f8fafc}
@@ -41,10 +43,39 @@ tr:hover td{background:#f8fafc}
 .mname{font-weight:600}
 .zero{color:#cbd5e1}
 .money{color:#16a34a;font-weight:600}
+/* Карточки менеджеров (мобиль) */
+.mgr-cards{display:none;flex-direction:column;gap:10px;margin-bottom:16px}
+.mgr-card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.mgr-card-name{font-size:15px;font-weight:700;color:#0f172a;margin-bottom:10px;
+               padding-bottom:8px;border-bottom:1px solid #f1f5f9}
+.mgr-row{display:flex;justify-content:space-between;align-items:center;
+         padding:6px 0;border-bottom:1px solid #f8fafc}
+.mgr-row:last-child{border-bottom:none}
+.mgr-row .rl{color:#64748b;font-size:13px}
+.mgr-row .rv{font-weight:600;font-size:14px}
+.rv.zero{color:#cbd5e1;font-weight:400}
+.rv.money{color:#16a34a}
 footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
 .hidden{display:none!important}
 .err{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;
      padding:14px 18px;color:#dc2626;font-size:13px;margin-bottom:16px}
+
+/* ── Мобильные стили (≤ 640px) ── */
+@media (max-width:640px){
+  .wrap{padding:12px 12px}
+  header{padding:14px 16px;margin-bottom:12px;border-radius:10px}
+  header h1{font-size:16px}
+  .meta{font-size:11px}
+  .btn{padding:8px 14px;font-size:13px}
+  .kpi{grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
+  .kpi-card:last-child{grid-column:span 2}
+  .kpi-card{padding:12px 14px;border-radius:9px}
+  .kpi-card .val{font-size:18px}
+  /* Прячем таблицу, показываем карточки */
+  table{display:none}
+  .mgr-cards{display:flex}
+  footer{font-size:10px}
+}
 </style>
 </head>
 <body>
@@ -66,6 +97,7 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
 
   <div id="dashboard" class="hidden">
     <div class="kpi" id="kpi"></div>
+    <!-- Таблица: десктоп -->
     <table>
       <thead><tr>
         <th>Менеджер</th>
@@ -77,6 +109,8 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
       </tr></thead>
       <tbody id="tbody"></tbody>
     </table>
+    <!-- Карточки: мобиль -->
+    <div class="mgr-cards" id="mgrCards"></div>
     <footer id="footer"></footer>
   </div>
 </div>
@@ -304,10 +338,28 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
   `;
 
   const sorted = [...managers].sort((a,b) => ((b.m||{}).realizedSum||0) - ((a.m||{}).realizedSum||0));
+
+  // Таблица (десктоп)
   document.getElementById('tbody').innerHTML = sorted.map(({ name, m }) => {
     if (!m) return `<tr><td class="mname">${name}</td><td colspan="5" class="zero">—</td></tr>`;
     const td = (v, fn=fmtNum) => { const s=fn(v); return `<td class="${s==='—'?'zero':fn===fmtMoney&&s!=='—'?'money':''}">${s}</td>`; };
     return `<tr><td class="mname">${name}</td>${td(m.calls)}${td(m.newDeals)}${td(m.confirmedSum,fmtMoney)}${td(m.realizedSum,fmtMoney)}${td(m.tasks)}</tr>`;
+  }).join('');
+
+  // Карточки (мобиль)
+  const row = (label, val, cls='') =>
+    `<div class="mgr-row"><span class="rl">${label}</span><span class="rv ${cls}">${val}</span></div>`;
+  document.getElementById('mgrCards').innerHTML = sorted.map(({ name, m }) => {
+    if (!m) return `<div class="mgr-card"><div class="mgr-card-name">${name}</div><div class="mgr-row"><span class="rl">Нет данных</span></div></div>`;
+    const c = (v,fn=fmtNum) => { const s=fn(v); return s==='—'?'zero':fn===fmtMoney&&s!=='—'?'money':''; };
+    return `<div class="mgr-card">
+      <div class="mgr-card-name">${name}</div>
+      ${row('Звонки &gt;40с', fmtNum(m.calls), c(m.calls))}
+      ${row('Новые сделки', fmtNum(m.newDeals), c(m.newDeals))}
+      ${row('Подтверждено', fmtMoney(m.confirmedSum), c(m.confirmedSum,fmtMoney))}
+      ${row('Реализовано', fmtMoney(m.realizedSum), c(m.realizedSum,fmtMoney))}
+      ${row('Задачи', fmtNum(m.tasks), c(m.tasks))}
+    </div>`;
   }).join('');
 
   document.getElementById('footer').textContent =
