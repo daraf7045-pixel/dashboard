@@ -49,6 +49,10 @@ tr:hover td{background:#f8fafc}
 .red{color:#ef4444}
 .trophy{width:18px;height:18px;vertical-align:middle;margin-left:5px;display:inline-block}
 .mgr-card-name .trophy{width:20px;height:20px}
+.pct-badge{display:inline-block;font-size:11px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:7px;vertical-align:middle}
+.pct-done{background:#dcfce7;color:#15803d}
+.pct-mid{background:#fef9c3;color:#a16207}
+.pct-low{background:#fee2e2;color:#b91c1c}
 /* Карточки менеджеров (мобиль) */
 .mgr-cards{display:none;flex-direction:column;gap:10px;margin-bottom:16px}
 .mgr-card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
@@ -416,10 +420,13 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
     const td = (v, fn=fmtNum) => { const s=fn(v); return `<td class="${s==='—'?'zero':fn===fmtMoney&&s!=='—'?'money':''}">${s}</td>`; };
     const rem = m.remaining;
     const trophy = rem <= 0 ? TROPHY : '';
+    const pct = m.plan > 0 ? Math.round((m.monthlyRealized / m.plan) * 100) : 0;
+    const pctCls = pct >= 100 ? 'pct-done' : pct >= 50 ? 'pct-mid' : 'pct-low';
+    const pctBadge = `<span class="pct-badge ${pctCls}">${pct}%</span>`;
     const remTd = rem <= 0
       ? `<td class="plan-done">✓ Выполнен</td>`
       : `<td class="plan-left">${fmtMoney(rem)}</td>`;
-    return `<tr><td class="mname">${name}${trophy}</td>${td(m.calls)}${td(m.newDeals)}${td(m.confirmedSum,fmtMoney)}${td(m.realizedSum,fmtMoney)}${td(m.tasks)}${remTd}</tr>`;
+    return `<tr><td class="mname">${name}${trophy}${pctBadge}</td>${td(m.calls)}${td(m.newDeals)}${td(m.confirmedSum,fmtMoney)}${td(m.realizedSum,fmtMoney)}${td(m.tasks)}${remTd}</tr>`;
   }).join('');
 
   // Карточки (мобиль)
@@ -430,10 +437,13 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
     const c = (v,fn=fmtNum) => { const s=fn(v); return s==='—'?'zero':fn===fmtMoney&&s!=='—'?'money':''; };
     const rem = m.remaining;
     const trophy = rem <= 0 ? TROPHY : '';
+    const pct = m.plan > 0 ? Math.round((m.monthlyRealized / m.plan) * 100) : 0;
+    const pctCls = pct >= 100 ? 'pct-done' : pct >= 50 ? 'pct-mid' : 'pct-low';
+    const pctBadge = `<span class="pct-badge ${pctCls}">${pct}%</span>`;
     const remVal = rem <= 0 ? '✓ Выполнен' : fmtMoney(rem);
     const remCls = rem <= 0 ? 'money' : 'plan-left-txt';
     return `<div class="mgr-card">
-      <div class="mgr-card-name">${name}${trophy}</div>
+      <div class="mgr-card-name">${name}${trophy}${pctBadge}</div>
       ${row('Звонки &gt;40с', fmtNum(m.calls), c(m.calls))}
       ${row('Новые сделки', fmtNum(m.newDeals), c(m.newDeals))}
       ${row('Подтверждено', fmtMoney(m.confirmedSum), c(m.confirmedSum,fmtMoney))}
