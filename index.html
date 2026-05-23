@@ -110,12 +110,12 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
     <table>
       <thead><tr>
         <th>Менеджер</th>
+        <th>Остаток плана</th>
         <th>Звонки&nbsp;&gt;40с</th>
         <th>Новые&nbsp;сделки</th>
         <th>Подтверждено</th>
         <th>Подписано</th>
         <th>Задачи</th>
-        <th>Остаток плана</th>
       </tr></thead>
       <tbody id="tbody"></tbody>
     </table>
@@ -428,7 +428,7 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
     const remTd = rem <= 0
       ? `<td class="plan-done">✓ Выполнен</td>`
       : `<td class="plan-left">${fmtMoney(rem)}</td>`;
-    return `<tr><td class="mname">${name}${trophy}${pctBadge}</td>${td(m.calls)}${td(m.newDeals)}${td(m.confirmedSum,fmtMoney)}${td(m.realizedSum,fmtMoney)}${td(m.tasks)}${remTd}</tr>`;
+    return `<tr><td class="mname">${name}${trophy}${pctBadge}</td>${remTd}${td(m.calls)}${td(m.newDeals)}${td(m.confirmedSum,fmtMoney)}${td(m.realizedSum,fmtMoney)}${td(m.tasks)}</tr>`;
   }).join('');
 
   // Карточки (мобиль)
