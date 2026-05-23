@@ -47,6 +47,8 @@ tr:hover td{background:#f8fafc}
 .plan-left{color:#ef4444;font-weight:600}
 .plan-left-txt{color:#ef4444}
 .red{color:#ef4444}
+.trophy{width:18px;height:18px;vertical-align:middle;margin-left:5px;display:inline-block}
+.mgr-card-name .trophy{width:20px;height:20px}
 /* Карточки менеджеров (мобиль) */
 .mgr-cards{display:none;flex-direction:column;gap:10px;margin-bottom:16px}
 .mgr-card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
@@ -107,7 +109,7 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
         <th>Звонки&nbsp;&gt;40с</th>
         <th>Новые&nbsp;сделки</th>
         <th>Подтверждено</th>
-        <th>Реализовано</th>
+        <th>Подписано</th>
         <th>Задачи</th>
         <th>Остаток плана</th>
       </tr></thead>
@@ -124,7 +126,7 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
 const WH = 'https://dcatering.bitrix24.ru/rest/160/ghlyw75jejp57sex';
 const CATEGORY_ID = 4;
 const CONFIRMED   = 'C4:UC_3KB83W';
-const REALIZED    = 'C4:WON';
+const REALIZED    = 'C4:UC_3KB83W'; // Заказ подтвержден (Подписано)
 const MANAGERS = [
   { name: 'Кирасирова Анна',   id: '12752' },
   { name: 'Воронежцева Алина', id: '9174'  },
@@ -381,22 +383,34 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
     <div class="kpi-card"><div class="lbl">Звонки &gt;40с</div><div class="val blue">${fmtNum(totals.calls)}</div></div>
     <div class="kpi-card"><div class="lbl">Новые сделки</div><div class="val blue">${fmtNum(totals.newDeals)}</div></div>
     <div class="kpi-card"><div class="lbl">Подтверждено</div><div class="val green">${fmtMoney(totals.confirmedSum)}</div></div>
-    <div class="kpi-card"><div class="lbl">Реализовано</div><div class="val green">${fmtMoney(totals.realizedSum)}</div></div>
+    <div class="kpi-card"><div class="lbl">Подписано</div><div class="val green">${fmtMoney(totals.realizedSum)}</div></div>
     <div class="kpi-card"><div class="lbl">Задачи</div><div class="val blue">${fmtNum(totals.tasks)}</div></div>
     <div class="kpi-card"><div class="lbl">Остаток плана (месяц)</div><div class="val ${remCls}">${totalRemaining<=0?'✓ Выполнен':fmtMoney(totalRemaining)}</div></div>
   `;
 
   const sorted = [...managers].sort((a,b) => ((b.m||{}).realizedSum||0) - ((a.m||{}).realizedSum||0));
 
+  const TROPHY = `<svg class="trophy" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M44 8H20v20c0 6.627 5.373 12 12 12s12-5.373 12-12V8z" fill="#FFC107"/>
+    <path d="M44 8H20v8h24V8z" fill="#FFD54F"/>
+    <path d="M20 14H10v4c0 5.523 4.477 10 10 10v-14z" fill="#FFC107"/>
+    <path d="M44 14h10v4c0 5.523-4.477 10-10 10V14z" fill="#FFC107"/>
+    <path d="M28 40h8v6h-8z" fill="#FFC107"/>
+    <path d="M22 46h20v4H22z" fill="#8D6E63"/>
+    <path d="M20 50h24v4H20z" fill="#795548"/>
+    <circle cx="32" cy="24" r="6" fill="#FFD54F" opacity=".5"/>
+  </svg>`;
+
   // Таблица (десктоп)
   document.getElementById('tbody').innerHTML = sorted.map(({ name, m }) => {
     if (!m) return `<tr><td class="mname">${name}</td><td colspan="6" class="zero">—</td></tr>`;
     const td = (v, fn=fmtNum) => { const s=fn(v); return `<td class="${s==='—'?'zero':fn===fmtMoney&&s!=='—'?'money':''}">${s}</td>`; };
     const rem = m.remaining;
+    const trophy = rem <= 0 ? TROPHY : '';
     const remTd = rem <= 0
       ? `<td class="plan-done">✓ Выполнен</td>`
       : `<td class="plan-left">${fmtMoney(rem)}</td>`;
-    return `<tr><td class="mname">${name}</td>${td(m.calls)}${td(m.newDeals)}${td(m.confirmedSum,fmtMoney)}${td(m.realizedSum,fmtMoney)}${td(m.tasks)}${remTd}</tr>`;
+    return `<tr><td class="mname">${name}${trophy}</td>${td(m.calls)}${td(m.newDeals)}${td(m.confirmedSum,fmtMoney)}${td(m.realizedSum,fmtMoney)}${td(m.tasks)}${remTd}</tr>`;
   }).join('');
 
   // Карточки (мобиль)
@@ -406,14 +420,15 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
     if (!m) return `<div class="mgr-card"><div class="mgr-card-name">${name}</div><div class="mgr-row"><span class="rl">Нет данных</span></div></div>`;
     const c = (v,fn=fmtNum) => { const s=fn(v); return s==='—'?'zero':fn===fmtMoney&&s!=='—'?'money':''; };
     const rem = m.remaining;
+    const trophy = rem <= 0 ? TROPHY : '';
     const remVal = rem <= 0 ? '✓ Выполнен' : fmtMoney(rem);
     const remCls = rem <= 0 ? 'money' : 'plan-left-txt';
     return `<div class="mgr-card">
-      <div class="mgr-card-name">${name}</div>
+      <div class="mgr-card-name">${name}${trophy}</div>
       ${row('Звонки &gt;40с', fmtNum(m.calls), c(m.calls))}
       ${row('Новые сделки', fmtNum(m.newDeals), c(m.newDeals))}
       ${row('Подтверждено', fmtMoney(m.confirmedSum), c(m.confirmedSum,fmtMoney))}
-      ${row('Реализовано', fmtMoney(m.realizedSum), c(m.realizedSum,fmtMoney))}
+      ${row('Подписано', fmtMoney(m.realizedSum), c(m.realizedSum,fmtMoney))}
       ${row('Задачи', fmtNum(m.tasks), c(m.tasks))}
       ${row('Остаток плана', remVal, remCls)}
     </div>`;
