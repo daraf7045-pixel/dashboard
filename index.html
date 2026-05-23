@@ -421,7 +421,7 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
     const rem = m.remaining;
     const trophy = rem <= 0 ? TROPHY : '';
     const pct = m.plan > 0 ? Math.round((m.monthlyRealized / m.plan) * 100) : 0;
-    const pctCls = pct >= 100 ? 'pct-done' : pct >= 50 ? 'pct-mid' : 'pct-low';
+    const pctCls = pct >= 80 ? 'pct-done' : pct >= 60 ? 'pct-mid' : 'pct-low';
     const pctBadge = `<span class="pct-badge ${pctCls}">${pct}%</span>`;
     const remTd = rem <= 0
       ? `<td class="plan-done">✓ Выполнен</td>`
@@ -438,7 +438,7 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
     const rem = m.remaining;
     const trophy = rem <= 0 ? TROPHY : '';
     const pct = m.plan > 0 ? Math.round((m.monthlyRealized / m.plan) * 100) : 0;
-    const pctCls = pct >= 100 ? 'pct-done' : pct >= 50 ? 'pct-mid' : 'pct-low';
+    const pctCls = pct >= 80 ? 'pct-done' : pct >= 60 ? 'pct-mid' : 'pct-low';
     const pctBadge = `<span class="pct-badge ${pctCls}">${pct}%</span>`;
     const remVal = rem <= 0 ? '✓ Выполнен' : fmtMoney(rem);
     const remCls = rem <= 0 ? 'money' : 'plan-left-txt';
