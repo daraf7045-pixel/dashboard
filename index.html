@@ -131,12 +131,14 @@ const MANAGERS = [
   { name: 'Кирасирова Анна',   id: '12752' },
   { name: 'Воронежцева Алина', id: '9174'  },
   { name: 'Айсина Динара',     id: '14262' },
+  { name: 'Федотова Дарья',    id: '160'   },
 ];
 // Планы продаж по менеджерам: id → { месяц: сумма }
 const PLANS = {
   '12752': { 5: 2070000, 6: 2802000 },   // Анна
   '9174':  { 5: 2250000, 6: 3104000 },   // Алина
   '14262': { 5: 1440000, 6: 1928000 },   // Динара
+  '160':   { 5: 1440000, 6: 1806000 },   // Дарья
 };
 function currentPlan(userId) {
   const m = mskNow().getMonth() + 1;
@@ -383,6 +385,7 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
     <div class="kpi-card"><div class="lbl">Подтверждено</div><div class="val green">${fmtMoney(totals.confirmedSum)}</div></div>
     <div class="kpi-card"><div class="lbl">Подписано</div><div class="val green">${fmtMoney(totals.realizedSum)}</div></div>
     <div class="kpi-card"><div class="lbl">Задачи</div><div class="val blue">${fmtNum(totals.tasks)}</div></div>
+    <div class="kpi-card"><div class="lbl">Общий план (месяц)</div><div class="val blue">${fmtMoney(totalPlan)}</div></div>
     <div class="kpi-card"><div class="lbl">Остаток плана (месяц)</div><div class="val ${remCls}">${totalRemaining<=0?'✓ Выполнен':fmtMoney(totalRemaining)}</div></div>
   `;
 
