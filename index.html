@@ -111,6 +111,7 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
       <thead><tr>
         <th>Менеджер</th>
         <th>Остаток плана</th>
+        <th>Выручка</th>
         <th>Звонки&nbsp;&gt;40с</th>
         <th>Новые&nbsp;сделки</th>
         <th>Подтверждено</th>
@@ -411,6 +412,7 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
     <div class="kpi-card"><div class="lbl">Новые сделки</div><div class="val blue">${fmtNum(totals.newDeals)}</div></div>
     <div class="kpi-card"><div class="lbl">Подтверждено</div><div class="val green">${fmtMoney(totals.confirmedSum)}</div></div>
     <div class="kpi-card"><div class="lbl">Подписано</div><div class="val green">${fmtMoney(totals.realizedSum)}</div></div>
+    <div class="kpi-card"><div class="lbl">Выручка</div><div class="val green">${fmtMoney(totals.confirmedSum + totals.realizedSum)}</div></div>
     <div class="kpi-card"><div class="lbl">Задачи</div><div class="val blue">${fmtNum(totals.tasks)}</div></div>
     <div class="kpi-card"><div class="lbl">Общий план (месяц)</div><div class="val blue">${fmtMoney(totalPlan)}</div></div>
     <div class="kpi-card"><div class="lbl">Выполнение плана</div><div class="val ${totalPctCls}">${totalPct}%</div></div>
@@ -432,7 +434,7 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
 
   // Таблица (десктоп)
   document.getElementById('tbody').innerHTML = sorted.map(({ name, m }) => {
-    if (!m) return `<tr><td class="mname">${name}</td><td colspan="6" class="zero">—</td></tr>`;
+    if (!m) return `<tr><td class="mname">${name}</td><td colspan="7" class="zero">—</td></tr>`;
     const td = (v, fn=fmtNum) => { const s=fn(v); return `<td class="${s==='—'?'zero':fn===fmtMoney&&s!=='—'?'money':''}">${s}</td>`; };
     const rem = m.remaining;
     const trophy = rem <= 0 ? TROPHY : '';
@@ -442,7 +444,8 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
     const remTd = rem <= 0
       ? `<td class="plan-done">✓ Выполнен</td>`
       : `<td class="plan-left">${fmtMoney(rem)}</td>`;
-    return `<tr><td class="mname">${name}${trophy}${pctBadge}</td>${remTd}${td(m.calls)}${td(m.newDeals)}${td(m.confirmedSum,fmtMoney)}${td(m.realizedSum,fmtMoney)}${td(m.tasks)}</tr>`;
+    const revenue = m.confirmedSum + m.realizedSum;
+    return `<tr><td class="mname">${name}${trophy}${pctBadge}</td>${remTd}${td(revenue,fmtMoney)}${td(m.calls)}${td(m.newDeals)}${td(m.confirmedSum,fmtMoney)}${td(m.realizedSum,fmtMoney)}${td(m.tasks)}</tr>`;
   }).join('');
 
   // Карточки (мобиль)
@@ -460,12 +463,13 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
     const remCls = rem <= 0 ? 'money' : 'plan-left-txt';
     return `<div class="mgr-card">
       <div class="mgr-card-name">${name}${trophy}${pctBadge}</div>
+      ${row('Остаток плана', remVal, remCls)}
+      ${row('Выручка', fmtMoney(m.confirmedSum + m.realizedSum), 'money')}
       ${row('Звонки &gt;40с', fmtNum(m.calls), c(m.calls))}
       ${row('Новые сделки', fmtNum(m.newDeals), c(m.newDeals))}
       ${row('Подтверждено', fmtMoney(m.confirmedSum), c(m.confirmedSum,fmtMoney))}
       ${row('Подписано', fmtMoney(m.realizedSum), c(m.realizedSum,fmtMoney))}
       ${row('Задачи', fmtNum(m.tasks), c(m.tasks))}
-      ${row('Остаток плана', remVal, remCls)}
     </div>`;
   }).join('');
 
