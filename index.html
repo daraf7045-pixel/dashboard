@@ -320,6 +320,7 @@ async function getTasks(userId, fromTime, today) {
 // Считает сумму подтверждённых сделок менеджера за текущий месяц:
 // сделки сейчас в CONFIRMED + ушедшие из CONFIRMED в WON в этом месяце
 async function getMonthlyRealized(userId) {
+  const monthStart = monthStartMSK();
   const [inConfirmed, wonThisMonth] = await Promise.all([
     paginateAll('crm.deal.list', {
       filter: { ASSIGNED_BY_ID: userId, CATEGORY_ID, STAGE_ID: CONFIRMED },
@@ -330,14 +331,15 @@ async function getMonthlyRealized(userId) {
         ASSIGNED_BY_ID: userId,
         CATEGORY_ID,
         STAGE_ID: 'C4:WON',
-        PREVIOUS_STAGE_ID: CONFIRMED,
-        '>=DATE_MODIFY': monthStartMSK(),
+        '>=MOVED_TIME': monthStart,
       },
-      select: ['ID', 'OPPORTUNITY'],
+      select: ['ID', 'OPPORTUNITY', 'PREVIOUS_STAGE_ID'],
     }),
   ]);
+  // Из WON берём только те, что пришли именно из CONFIRMED
+  const wonFromConfirmed = wonThisMonth.filter(d => d.PREVIOUS_STAGE_ID === CONFIRMED);
   const seen = new Set();
-  return [...inConfirmed, ...wonThisMonth]
+  return [...inConfirmed, ...wonFromConfirmed]
     .filter(d => { if (seen.has(d.ID)) return false; seen.add(d.ID); return true; })
     .reduce((s, d) => s + parseFloat(d.OPPORTUNITY || 0), 0);
 }
