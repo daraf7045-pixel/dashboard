@@ -317,31 +317,23 @@ async function getTasks(userId, fromTime, today) {
   return count;
 }
 
-// Считает сумму сделок менеджера в "Заказ подтвержден" за текущий месяц:
-// — сделки сейчас в стадии CONFIRMED
-// — сделки, ушедшие из CONFIRMED в WON в этом месяце (PREVIOUS_STAGE_ID + DATE_MODIFY)
-async function getMonthlyRealized(userId) {
-  const monthStart = monthStartMSK();
-  const [inConfirmed, wonThisMonth] = await Promise.all([
-    paginateAll('crm.deal.list', {
-      filter: { ASSIGNED_BY_ID: userId, CATEGORY_ID, STAGE_ID: CONFIRMED },
-      select: ['ID', 'OPPORTUNITY'],
-    }),
-    paginateAll('crm.deal.list', {
-      filter: {
-        ASSIGNED_BY_ID: userId,
-        CATEGORY_ID,
-        STAGE_ID: 'C4:WON',
-        PREVIOUS_STAGE_ID: CONFIRMED,
-        '>=DATE_MODIFY': monthStart,
-      },
-      select: ['ID', 'OPPORTUNITY'],
-    }),
-  ]);
-  const seen = new Set();
-  return [...inConfirmed, ...wonThisMonth]
-    .filter(d => { if (seen.has(d.ID)) return false; seen.add(d.ID); return true; })
-    .reduce((s, d) => s + parseFloat(d.OPPORTUNITY || 0), 0);
+// Загружает ID сделок, реализованных за весь текущий месяц (для расчёта плана)
+async function loadMonthlyWonIds() {
+  const items = await paginateAll('crm.stagehistory.list', {
+    entityTypeId: 2,
+    filter: { '>=CREATED_TIME': monthStartMSK(), '<CREATED_TIME': monthEndMSK() },
+    select: ['OWNER_ID', 'STAGE_ID', 'CATEGORY_ID'],
+  });
+  const ids = new Set();
+  for (const item of items)
+    if (item.STAGE_ID === CONFIRMED && String(item.CATEGORY_ID) === String(CATEGORY_ID))
+      ids.add(String(item.OWNER_ID));
+  return ids;
+}
+
+async function getMonthlyRealized(userId, wonIds) {
+  const deals = await stageDeals(wonIds, userId);
+  return deals.reduce((s, d) => s + parseFloat(d.OPPORTUNITY || 0), 0);
 }
 
 async function collectOne(userId, fromTime, today, confirmedIds, realizedIds) {
@@ -473,7 +465,10 @@ async function refresh() {
     setStatus(isFirst ? 'Первый сбор за сегодня (с 00:00 МСК)...' : `Обновление с ${fromTime.slice(11,16)} МСК...`);
 
     setStatus('Загрузка переходов по стадиям...');
-    const transitions = await loadTransitions(fromTime, today);
+    const [transitions, monthlyWonIds] = await Promise.all([
+      loadTransitions(fromTime, today),
+      loadMonthlyWonIds(),
+    ]);
     const confirmedIds = transitions[CONFIRMED] || new Set();
     const realizedIds  = transitions[REALIZED]  || new Set();
 
@@ -484,7 +479,7 @@ async function refresh() {
       setStatus(`Сбор данных: ${mgr.name}...`);
       const [delta, monthReal] = await Promise.all([
         collectOne(mgr.id, fromTime, today, confirmedIds, realizedIds),
-        getMonthlyRealized(mgr.id),
+        getMonthlyRealized(mgr.id, monthlyWonIds),
       ]);
       const prev  = accumulated[mgr.id] || { calls:0, newDeals:0, confirmedSum:0, realizedSum:0, tasks:0 };
       const plan  = currentPlan(mgr.id);
