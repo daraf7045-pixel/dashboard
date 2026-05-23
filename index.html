@@ -335,13 +335,15 @@ async function getMonthlyRealized(userId) {
         ASSIGNED_BY_ID: userId,
         CATEGORY_ID,
         STAGE_ID: 'C4:WON',
-        '>=MOVED_TIME': monthStart,
+        '>=DATE_MODIFY': monthStart,
       },
-      select: ['ID', 'OPPORTUNITY', 'PREVIOUS_STAGE_ID'],
+      select: ['ID', 'OPPORTUNITY', 'PREVIOUS_STAGE_ID', 'MOVED_TIME'],
     }),
   ]);
-  // Из WON берём только те, что пришли именно из CONFIRMED
-  const wonFromConfirmed = wonThisMonth.filter(d => d.PREVIOUS_STAGE_ID === CONFIRMED);
+  // Из WON берём только те, что пришли из CONFIRMED И переведены в WON в этом месяце
+  const wonFromConfirmed = wonThisMonth.filter(d =>
+    d.PREVIOUS_STAGE_ID === CONFIRMED && (d.MOVED_TIME || '') >= monthStart
+  );
   const seen = new Set();
   return [...inConfirmed, ...wonFromConfirmed]
     .filter(d => { if (seen.has(d.ID)) return false; seen.add(d.ID); return true; })
