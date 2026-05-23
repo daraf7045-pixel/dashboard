@@ -30,7 +30,7 @@ header h1{font-size:18px;font-weight:700;color:#0f172a}
 .kpi-card{background:#fff;border-radius:10px;padding:16px 18px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
 .kpi-card .lbl{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
 .kpi-card .val{font-size:20px;font-weight:700}
-.blue{color:#2563eb}.green{color:#16a34a}
+.blue{color:#2563eb}.green{color:#16a34a}.orange{color:#d97706;font-weight:600}
 /* Таблица (десктоп) */
 table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;
       overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:16px}
@@ -390,9 +390,12 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
   const totals = { calls:0, newDeals:0, confirmedSum:0, realizedSum:0, tasks:0 };
   for (const { m } of managers) if (m) for (const k of Object.keys(totals)) totals[k] += m[k]||0;
 
-  const totalRemaining = managers.reduce((s,{m}) => s + (m?.remaining||0), 0);
-  const totalPlan      = managers.reduce((s,{m}) => s + (m?.plan||0), 0);
-  const remCls = totalRemaining <= 0 ? 'green' : 'red';
+  const totalRemaining    = managers.reduce((s,{m}) => s + (m?.remaining||0), 0);
+  const totalPlan         = managers.reduce((s,{m}) => s + (m?.plan||0), 0);
+  const totalMonthReal    = managers.reduce((s,{m}) => s + (m?.monthlyRealized||0), 0);
+  const totalPct          = totalPlan > 0 ? Math.round((totalMonthReal / totalPlan) * 100) : 0;
+  const totalPctCls       = totalPct >= 80 ? 'green' : totalPct >= 60 ? 'orange' : 'red';
+  const remCls            = totalRemaining <= 0 ? 'green' : 'red';
   document.getElementById('kpi').innerHTML = `
     <div class="kpi-card"><div class="lbl">Звонки &gt;40с</div><div class="val blue">${fmtNum(totals.calls)}</div></div>
     <div class="kpi-card"><div class="lbl">Новые сделки</div><div class="val blue">${fmtNum(totals.newDeals)}</div></div>
@@ -400,6 +403,7 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
     <div class="kpi-card"><div class="lbl">Подписано</div><div class="val green">${fmtMoney(totals.realizedSum)}</div></div>
     <div class="kpi-card"><div class="lbl">Задачи</div><div class="val blue">${fmtNum(totals.tasks)}</div></div>
     <div class="kpi-card"><div class="lbl">Общий план (месяц)</div><div class="val blue">${fmtMoney(totalPlan)}</div></div>
+    <div class="kpi-card"><div class="lbl">Выполнение плана</div><div class="val ${totalPctCls}">${totalPct}%</div></div>
     <div class="kpi-card"><div class="lbl">Остаток плана (месяц)</div><div class="val ${remCls}">${totalRemaining<=0?'✓ Выполнен':fmtMoney(totalRemaining)}</div></div>
   `;
 
