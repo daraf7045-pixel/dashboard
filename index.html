@@ -324,16 +324,14 @@ async function loadMonthlyWonIds() {
   });
   const ids = new Set();
   for (const item of items)
-    if (item.STAGE_ID === REALIZED && String(item.CATEGORY_ID) === String(CATEGORY_ID))
+    if (item.STAGE_ID === CONFIRMED && String(item.CATEGORY_ID) === String(CATEGORY_ID))
       ids.add(String(item.OWNER_ID));
   return ids;
 }
 
 async function getMonthlyRealized(userId, wonIds) {
-  const deals = await stageDeals(wonIds, userId, ['MODIFY_BY_ID']);
-  return deals
-    .filter(d => String(d.MODIFY_BY_ID) === String(userId))
-    .reduce((s, d) => s + parseFloat(d.OPPORTUNITY || 0), 0);
+  const deals = await stageDeals(wonIds, userId);
+  return deals.reduce((s, d) => s + parseFloat(d.OPPORTUNITY || 0), 0);
 }
 
 async function collectOne(userId, fromTime, today, confirmedIds, realizedIds) {
