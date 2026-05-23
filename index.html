@@ -322,13 +322,23 @@ async function getTasks(userId, fromTime, today) {
 }
 
 // Считает сумму подтверждённых сделок менеджера за текущий месяц:
+// Поля агентских комиссий (вычитаются из суммы сделки)
+const COMMISSION_FIELDS = ['UF_CRM_1675687802829', 'UF_CRM_1675689049773'];
+
+function netOpportunity(d) {
+  const opp = parseFloat(d.OPPORTUNITY || 0);
+  const comm = COMMISSION_FIELDS.reduce((s, f) => s + parseFloat(d[f] || 0), 0);
+  return opp - comm;
+}
+
 // сделки сейчас в CONFIRMED + ушедшие из CONFIRMED в WON в этом месяце
 async function getMonthlyRealized(userId) {
   const monthStart = monthStartMSK();
+  const extraFields = [...COMMISSION_FIELDS];
   const [inConfirmed, wonThisMonth] = await Promise.all([
     paginateAll('crm.deal.list', {
       filter: { ASSIGNED_BY_ID: userId, CATEGORY_ID, STAGE_ID: CONFIRMED },
-      select: ['ID', 'OPPORTUNITY'],
+      select: ['ID', 'OPPORTUNITY', ...extraFields],
     }),
     paginateAll('crm.deal.list', {
       filter: {
@@ -337,7 +347,7 @@ async function getMonthlyRealized(userId) {
         STAGE_ID: 'C4:WON',
         '>=DATE_MODIFY': monthStart,
       },
-      select: ['ID', 'OPPORTUNITY', 'PREVIOUS_STAGE_ID', 'MOVED_TIME'],
+      select: ['ID', 'OPPORTUNITY', 'PREVIOUS_STAGE_ID', 'MOVED_TIME', ...extraFields],
     }),
   ]);
   // Из WON берём только те, что пришли из CONFIRMED И переведены в WON в этом месяце
@@ -347,7 +357,7 @@ async function getMonthlyRealized(userId) {
   const seen = new Set();
   return [...inConfirmed, ...wonFromConfirmed]
     .filter(d => { if (seen.has(d.ID)) return false; seen.add(d.ID); return true; })
-    .reduce((s, d) => s + parseFloat(d.OPPORTUNITY || 0), 0);
+    .reduce((s, d) => s + netOpportunity(d), 0);
 }
 
 async function collectOne(userId, fromTime, today, confirmedIds, realizedIds) {
