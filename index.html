@@ -27,9 +27,9 @@ header h1{font-size:18px;font-weight:700;color:#0f172a}
 @keyframes spin{to{transform:rotate(360deg)}}
 /* KPI */
 .kpi{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
-.kpi-card{background:#fff;border-radius:10px;padding:16px 18px;box-shadow:0 1px 4px rgba(0,0,0,.08);text-align:center}
+.kpi-card{background:#fff;border-radius:10px;padding:16px 18px;box-shadow:0 1px 4px rgba(0,0,0,.08);text-align:center;display:flex;flex-direction:column;justify-content:space-between}
 .kpi-card .lbl{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
-.kpi-card .val{font-size:20px;font-weight:700;white-space:nowrap}
+.kpi-card .val{font-size:20px;font-weight:700;white-space:nowrap;display:flex;align-items:center;justify-content:center}
 .blue{color:#2563eb}.green{color:#16a34a}.orange{color:#d97706;font-weight:600}
 /* Таблица (десктоп) */
 table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;
@@ -42,10 +42,10 @@ tr:last-child td{border-bottom:none}
 tr:hover td{background:#f8fafc}
 .mname{font-weight:600}
 .zero{color:#cbd5e1}
-.money{color:#16a34a;font-weight:600}
-.plan-done{color:#16a34a;font-weight:600}
-.plan-left{color:#ef4444;font-weight:600}
-.plan-left-txt{color:#ef4444}
+.money{color:#16a34a;font-weight:600;white-space:nowrap}
+.plan-done{color:#16a34a;font-weight:600;white-space:nowrap}
+.plan-left{color:#ef4444;font-weight:600;white-space:nowrap}
+.plan-left-txt{color:#ef4444;white-space:nowrap}
 .red{color:#ef4444}
 .trophy{width:18px;height:18px;vertical-align:middle;margin-left:5px;display:inline-block}
 .mgr-card-name .trophy{width:20px;height:20px}
