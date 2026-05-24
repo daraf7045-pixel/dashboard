@@ -118,6 +118,7 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
     <table>
       <thead><tr>
         <th>Менеджер</th>
+        <th>План на месяц</th>
         <th>Выручка (месяц)</th>
         <th>Остаток плана</th>
       </tr></thead>
@@ -459,7 +460,7 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
 
   // Таблица — месяц
   document.getElementById('tbodyMonth').innerHTML = sorted.map(({ name, m }) => {
-    if (!m) return `<tr><td class="mname">${name}</td><td colspan="2" class="zero">—</td></tr>`;
+    if (!m) return `<tr><td class="mname">${name}</td><td colspan="3" class="zero">—</td></tr>`;
     const td = (v, fn=fmtNum) => { const s=fn(v); return `<td class="${s==='—'?'zero':fn===fmtMoney&&s!=='—'?'money':''}">${s}</td>`; };
     const rem = m.remaining;
     const trophy = rem <= 0 ? TROPHY : '';
@@ -469,7 +470,7 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
     const remTd = rem <= 0
       ? `<td class="plan-done">✓ Выполнен</td>`
       : `<td class="plan-left">${fmtMoney(rem)}</td>`;
-    return `<tr><td class="mname">${name}${trophy}${pctBadge}</td>${td(m.monthlyRealized,fmtMoney)}${remTd}</tr>`;
+    return `<tr><td class="mname">${name}${trophy}${pctBadge}</td><td class="money">${fmtMoney(m.plan)}</td>${td(m.monthlyRealized,fmtMoney)}${remTd}</tr>`;
   }).join('');
 
   // Таблица — день
@@ -495,6 +496,7 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
     return `<div class="mgr-card">
       <div class="mgr-card-name">${name}${trophy}${pctBadge}</div>
       <div class="card-section-lbl">За месяц</div>
+      ${row('План', fmtMoney(m.plan), 'money')}
       ${row('Выручка', fmtMoney(m.monthlyRealized), 'money')}
       ${row('Остаток плана', remVal, remCls)}
       <div class="card-section-lbl">За день</div>
