@@ -19,6 +19,8 @@ header h1{font-size:18px;font-weight:700;color:#0f172a}
      font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s}
 .btn:hover{background:#1d4ed8}
 .btn:disabled{background:#93c5fd;cursor:not-allowed}
+.btn-month{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;
+           cursor:pointer;white-space:nowrap;transition:all .15s;border:2px solid #2563eb}
 .status{background:#fff;border-radius:10px;padding:14px 20px;margin-bottom:16px;
         box-shadow:0 1px 4px rgba(0,0,0,.08);color:#64748b;font-size:13px;
         display:flex;align-items:center;gap:10px}
@@ -100,7 +102,11 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
       <h1>Активность менеджеров</h1>
       <div class="meta" id="meta">Загрузка...</div>
     </div>
-    <button class="btn" id="btn" onclick="refresh()">&#x21BB; Обновить</button>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn-month" id="btnCur"  onclick="setView('current')" style="background:#2563eb;color:#fff">Текущий месяц</button>
+      <button class="btn-month" id="btnNext" onclick="setView('next')"    style="background:#fff;color:#2563eb;border:2px solid #2563eb">Следующий месяц</button>
+      <button class="btn" id="btn" onclick="refresh()">&#x21BB; Обновить</button>
+    </div>
   </header>
 
   <div class="status hidden" id="status">
@@ -113,7 +119,7 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
   <div id="dashboard" class="hidden">
 
     <!-- ── БЛОК 1: Результаты за месяц ── -->
-    <div class="section-title">📅 Результаты за месяц</div>
+    <div class="section-title" id="secMonthTitle">📅 Результаты за месяц</div>
     <div class="kpi kpi-month" id="kpiMonth"></div>
     <table>
       <thead><tr>
@@ -165,9 +171,13 @@ const PLANS = {
   '14262': { 5: 1440000, 6: 1928000 },   // Динара
   '160':   { 5: 1440000, 6: 1806000 },   // Дарья
 };
-function currentPlan(userId) {
-  const m = mskNow().getMonth() + 1;
+function currentPlan(userId, monthNum) {
+  const m = monthNum || (mskNow().getMonth() + 1);
   return PLANS[userId]?.[m] || 0;
+}
+function nextMonthNum() {
+  const m = mskNow().getMonth() + 1;
+  return m === 12 ? 1 : m + 1;
 }
 
 // ── Утилиты ─────────────────────────────────────────────────────────────────
@@ -199,6 +209,12 @@ function fmtNum(n) { return n ? String(n) : '—'; }
 function monthStartMSK() {
   const d = mskNow();
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-01T00:00:00+03:00`;
+}
+function nextMonthStartMSK() {
+  const d = mskNow();
+  const y = d.getMonth() === 11 ? d.getFullYear() + 1 : d.getFullYear();
+  const m = d.getMonth() === 11 ? 1 : d.getMonth() + 2;
+  return `${y}-${pad(m)}-01T00:00:00+03:00`;
 }
 function monthEndMSK() {
   const d = mskNow();
@@ -352,9 +368,9 @@ function netOpportunity(d) {
   return opp - comm;
 }
 
-// сделки сейчас в CONFIRMED + ушедшие из CONFIRMED в WON в этом месяце
-async function getMonthlyRealized(userId) {
-  const monthStart = monthStartMSK();
+// сделки сейчас в CONFIRMED + ушедшие из CONFIRMED в WON в указанном месяце
+async function getMonthlyRealized(userId, monthStart) {
+  if (!monthStart) monthStart = monthStartMSK();
   const extraFields = [...COMMISSION_FIELDS];
   const [inConfirmed, wonThisMonth] = await Promise.all([
     paginateAll('crm.deal.list', {
@@ -413,20 +429,28 @@ function showErr(msg) {
 }
 
 function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
+  _lastRenderArgs = [today, managers, lastCheck, apiCalls, elapsed];
+  const isNext = viewMode === 'next';
   const d = mskNow();
   const periodEnd = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const curM  = d.getMonth() + 1;
+  const nextM = curM === 12 ? 1 : curM + 1;
+  const monthNames = {1:'Январь',2:'Февраль',3:'Март',4:'Апрель',5:'Май',6:'Июнь',
+                      7:'Июль',8:'Август',9:'Сентябрь',10:'Октябрь',11:'Ноябрь',12:'Декабрь'};
+  const shownMonth = isNext ? monthNames[nextM] : monthNames[curM];
   document.getElementById('meta').textContent =
-    `Дата: ${today.split('-').reverse().join('.')}  ·  Период: 00:00 – ${periodEnd} МСК  ·  Обновлено: ${lastCheck.slice(11,16)} МСК`;
+    `${shownMonth}  ·  Период дня: 00:00 – ${periodEnd} МСК  ·  Обновлено: ${lastCheck.slice(11,16)} МСК`;
 
   const totals = { calls:0, newDeals:0, confirmedSum:0, realizedSum:0, tasks:0 };
   for (const { m } of managers) if (m) for (const k of Object.keys(totals)) totals[k] += m[k]||0;
 
-  const totalRemaining    = managers.reduce((s,{m}) => s + (m?.remaining||0), 0);
-  const totalPlan         = managers.reduce((s,{m}) => s + (m?.plan||0), 0);
-  const totalMonthReal    = managers.reduce((s,{m}) => s + (m?.monthlyRealized||0), 0);
-  const totalPct          = totalPlan > 0 ? Math.round((totalMonthReal / totalPlan) * 100) : 0;
-  const totalPctCls       = totalPct >= 80 ? 'green' : totalPct >= 60 ? 'orange' : 'red';
-  const remCls            = totalRemaining <= 0 ? 'green' : 'red';
+  // Выбираем данные нужного месяца
+  const totalPlan      = managers.reduce((s,{m}) => s + (isNext ? (m?.nextPlan||0) : (m?.plan||0)), 0);
+  const totalMonthReal = managers.reduce((s,{m}) => s + (isNext ? (m?.nextMonthlyRealized||0) : (m?.monthlyRealized||0)), 0);
+  const totalRemaining = managers.reduce((s,{m}) => s + (isNext ? (m?.nextRemaining||0) : (m?.remaining||0)), 0);
+  const totalPct       = totalPlan > 0 ? Math.round((totalMonthReal / totalPlan) * 100) : 0;
+  const totalPctCls    = totalPct >= 80 ? 'green' : totalPct >= 60 ? 'orange' : 'red';
+  const remCls         = totalRemaining <= 0 ? 'green' : 'red';
 
   // KPI — месяц
   document.getElementById('kpiMonth').innerHTML = `
@@ -458,19 +482,25 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
     <circle cx="32" cy="24" r="6" fill="#FFD54F" opacity=".5"/>
   </svg>`;
 
+  // Заголовок месяца
+  document.getElementById('secMonthTitle').textContent =
+    `📅 Результаты за месяц — ${shownMonth}`;
+
   // Таблица — месяц
   document.getElementById('tbodyMonth').innerHTML = sorted.map(({ name, m }) => {
     if (!m) return `<tr><td class="mname">${name}</td><td colspan="3" class="zero">—</td></tr>`;
     const td = (v, fn=fmtNum) => { const s=fn(v); return `<td class="${s==='—'?'zero':fn===fmtMoney&&s!=='—'?'money':''}">${s}</td>`; };
-    const rem = m.remaining;
+    const mReal = isNext ? (m.nextMonthlyRealized||0) : (m.monthlyRealized||0);
+    const mPlan = isNext ? (m.nextPlan||0) : (m.plan||0);
+    const rem   = mPlan - mReal;
     const trophy = rem <= 0 ? TROPHY : '';
-    const pct = m.plan > 0 ? Math.round((m.monthlyRealized / m.plan) * 100) : 0;
+    const pct = mPlan > 0 ? Math.round((mReal / mPlan) * 100) : 0;
     const pctCls = pct >= 80 ? 'pct-done' : pct >= 60 ? 'pct-mid' : 'pct-low';
     const pctBadge = `<span class="pct-badge ${pctCls}">${pct}%</span>`;
     const remTd = rem <= 0
       ? `<td class="plan-done">✓ Выполнен</td>`
       : `<td class="plan-left">${fmtMoney(rem)}</td>`;
-    return `<tr><td class="mname">${name}${trophy}${pctBadge}</td><td class="money">${fmtMoney(m.plan)}</td>${td(m.monthlyRealized,fmtMoney)}${remTd}</tr>`;
+    return `<tr><td class="mname">${name}${trophy}${pctBadge}</td><td class="money">${fmtMoney(mPlan)}</td>${td(mReal,fmtMoney)}${remTd}</tr>`;
   }).join('');
 
   // Таблица — день
@@ -486,18 +516,20 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
   document.getElementById('mgrCards').innerHTML = sorted.map(({ name, m }) => {
     if (!m) return `<div class="mgr-card"><div class="mgr-card-name">${name}</div><div class="mgr-row"><span class="rl">Нет данных</span></div></div>`;
     const c = (v,fn=fmtNum) => { const s=fn(v); return s==='—'?'zero':fn===fmtMoney&&s!=='—'?'money':''; };
-    const rem = m.remaining;
+    const mReal = isNext ? (m.nextMonthlyRealized||0) : (m.monthlyRealized||0);
+    const mPlan = isNext ? (m.nextPlan||0) : (m.plan||0);
+    const rem   = mPlan - mReal;
     const trophy = rem <= 0 ? TROPHY : '';
-    const pct = m.plan > 0 ? Math.round((m.monthlyRealized / m.plan) * 100) : 0;
+    const pct = mPlan > 0 ? Math.round((mReal / mPlan) * 100) : 0;
     const pctCls = pct >= 80 ? 'pct-done' : pct >= 60 ? 'pct-mid' : 'pct-low';
     const pctBadge = `<span class="pct-badge ${pctCls}">${pct}%</span>`;
     const remVal = rem <= 0 ? '✓ Выполнен' : fmtMoney(rem);
     const remCls = rem <= 0 ? 'money' : 'plan-left-txt';
     return `<div class="mgr-card">
       <div class="mgr-card-name">${name}${trophy}${pctBadge}</div>
-      <div class="card-section-lbl">За месяц</div>
-      ${row('План', fmtMoney(m.plan), 'money')}
-      ${row('Выручка', fmtMoney(m.monthlyRealized), 'money')}
+      <div class="card-section-lbl">За месяц — ${shownMonth}</div>
+      ${row('План', fmtMoney(mPlan), 'money')}
+      ${row('Выручка', fmtMoney(mReal), 'money')}
       ${row('Остаток плана', remVal, remCls)}
       <div class="card-section-lbl">За день</div>
       ${row('Звонки &gt;40с', fmtNum(m.calls), c(m.calls))}
@@ -512,6 +544,23 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
     `API-вызовов: ${apiCalls}  ·  Время: ${elapsed}с`;
 
   showDash(true);
+}
+
+// ── Переключение месяца ───────────────────────────────────────────────────────
+let viewMode = 'current';
+let _lastRenderArgs = null;
+
+function setView(mode) {
+  viewMode = mode;
+  document.getElementById('btnCur').style.cssText  = mode === 'current'
+    ? 'background:#2563eb;color:#fff;border:2px solid #2563eb'
+    : 'background:#fff;color:#2563eb;border:2px solid #2563eb';
+  document.getElementById('btnNext').style.cssText = mode === 'next'
+    ? 'background:#2563eb;color:#fff;border:2px solid #2563eb'
+    : 'background:#fff;color:#2563eb;border:2px solid #2563eb';
+  document.getElementById('btnCur').className  = 'btn-month';
+  document.getElementById('btnNext').className = 'btn-month';
+  if (_lastRenderArgs) renderDashboard(..._lastRenderArgs);
 }
 
 // ── Главная функция ───────────────────────────────────────────────────────────
@@ -545,23 +594,30 @@ async function refresh() {
     const accumulated = state?.metrics || {};
     const results = [];
 
+    const nextStart = nextMonthStartMSK();
+    const nextMon   = nextMonthNum();
     for (const mgr of MANAGERS) {
       setStatus(`Сбор данных: ${mgr.name}...`);
-      const [delta, monthReal] = await Promise.all([
+      const [delta, monthReal, nextReal] = await Promise.all([
         collectOne(mgr.id, fromTime, today, confirmedIds, realizedIds),
         getMonthlyRealized(mgr.id),
+        getMonthlyRealized(mgr.id, nextStart),
       ]);
       const prev  = accumulated[mgr.id] || { calls:0, newDeals:0, confirmedSum:0, realizedSum:0, tasks:0 };
-      const plan  = currentPlan(mgr.id);
+      const plan     = currentPlan(mgr.id);
+      const nextPlan = currentPlan(mgr.id, nextMon);
       const merged = {
-        calls:           prev.calls        + delta.calls,
-        newDeals:        prev.newDeals     + delta.newDeals,
-        confirmedSum:    prev.confirmedSum + delta.confirmedSum,
-        realizedSum:     prev.realizedSum  + delta.realizedSum,
-        tasks:           prev.tasks        + delta.tasks,
-        monthlyRealized: monthReal,
-        plan:            plan,
-        remaining:       plan - monthReal,
+        calls:              prev.calls        + delta.calls,
+        newDeals:           prev.newDeals     + delta.newDeals,
+        confirmedSum:       prev.confirmedSum + delta.confirmedSum,
+        realizedSum:        prev.realizedSum  + delta.realizedSum,
+        tasks:              prev.tasks        + delta.tasks,
+        monthlyRealized:    monthReal,
+        plan:               plan,
+        remaining:          plan - monthReal,
+        nextMonthlyRealized: nextReal,
+        nextPlan:            nextPlan,
+        nextRemaining:       nextPlan - nextReal,
       };
       accumulated[mgr.id] = merged;
       results.push({ name: mgr.name, m: merged });
