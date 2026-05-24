@@ -417,39 +417,21 @@ async function getMonthlyRealized(userId, monthStart) {
     .reduce((s, d) => s + netOpportunity(d), 0);
 }
 
-// Прошлый месяц: CONFIRMED с CLOSEDATE в прошлом месяце + WON из CONFIRMED в прошлом месяце
+// Прошлый месяц: только сделки «Успешно реализовано» за период прошлого месяца
 async function getPrevMonthRealized(userId, prevStart, prevEnd) {
   const extraFields = [...COMMISSION_FIELDS];
-  const [inConfirmedPrev, wonPrevMonth] = await Promise.all([
-    paginateAll('crm.deal.list', {
-      filter: {
-        ASSIGNED_BY_ID: userId,
-        CATEGORY_ID,
-        STAGE_ID: CONFIRMED,
-        '>=CLOSEDATE': prevStart,
-        '<CLOSEDATE':  prevEnd,
-      },
-      select: ['ID', 'OPPORTUNITY', 'CLOSEDATE', ...extraFields],
-    }),
-    paginateAll('crm.deal.list', {
-      filter: {
-        ASSIGNED_BY_ID: userId,
-        CATEGORY_ID,
-        STAGE_ID: 'C4:WON',
-        '>=DATE_MODIFY': prevStart,   // без верхней границы — DATE_MODIFY меняется при любом обновлении
-      },
-      select: ['ID', 'OPPORTUNITY', 'PREVIOUS_STAGE_ID', 'MOVED_TIME', ...extraFields],
-    }),
-  ]);
-  // Фильтруем по MOVED_TIME на клиенте — точная дата перехода в WON
-  const wonFromConfirmed = wonPrevMonth.filter(d =>
-    d.PREVIOUS_STAGE_ID === CONFIRMED &&
-    (d.MOVED_TIME || '') >= prevStart &&
-    (d.MOVED_TIME || '') <  prevEnd
-  );
-  const seen = new Set();
-  return [...inConfirmedPrev, ...wonFromConfirmed]
-    .filter(d => { if (seen.has(d.ID)) return false; seen.add(d.ID); return true; })
+  const wonPrevMonth = await paginateAll('crm.deal.list', {
+    filter: {
+      ASSIGNED_BY_ID: userId,
+      CATEGORY_ID,
+      STAGE_ID: 'C4:WON',
+      '>=DATE_MODIFY': prevStart,
+    },
+    select: ['ID', 'OPPORTUNITY', 'MOVED_TIME', ...extraFields],
+  });
+  // Фильтруем по MOVED_TIME — точная дата перехода в WON в прошлом месяце
+  return wonPrevMonth
+    .filter(d => (d.MOVED_TIME || '') >= prevStart && (d.MOVED_TIME || '') < prevEnd)
     .reduce((s, d) => s + netOpportunity(d), 0);
 }
 
