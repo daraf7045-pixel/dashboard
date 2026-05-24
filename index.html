@@ -368,7 +368,7 @@ function netOpportunity(d) {
   return opp - comm;
 }
 
-// сделки сейчас в CONFIRMED + ушедшие из CONFIRMED в WON в указанном месяце
+// Текущий месяц: сделки в CONFIRMED + перешедшие из CONFIRMED в WON в этом месяце
 async function getMonthlyRealized(userId, monthStart) {
   if (!monthStart) monthStart = monthStartMSK();
   const extraFields = [...COMMISSION_FIELDS];
@@ -387,13 +387,30 @@ async function getMonthlyRealized(userId, monthStart) {
       select: ['ID', 'OPPORTUNITY', 'PREVIOUS_STAGE_ID', 'MOVED_TIME', ...extraFields],
     }),
   ]);
-  // Из WON берём только те, что пришли из CONFIRMED И переведены в WON в этом месяце
   const wonFromConfirmed = wonThisMonth.filter(d =>
     d.PREVIOUS_STAGE_ID === CONFIRMED && (d.MOVED_TIME || '') >= monthStart
   );
   const seen = new Set();
   return [...inConfirmed, ...wonFromConfirmed]
     .filter(d => { if (seen.has(d.ID)) return false; seen.add(d.ID); return true; })
+    .reduce((s, d) => s + netOpportunity(d), 0);
+}
+
+// Следующий месяц: только сделки перешедшие в WON в следующем месяце
+// (пока месяц не начался — будет 0, как только начнётся — заполняется)
+async function getNextMonthRealized(userId, nextStart) {
+  const extraFields = [...COMMISSION_FIELDS];
+  const wonNextMonth = await paginateAll('crm.deal.list', {
+    filter: {
+      ASSIGNED_BY_ID: userId,
+      CATEGORY_ID,
+      STAGE_ID: 'C4:WON',
+      '>=DATE_MODIFY': nextStart,
+    },
+    select: ['ID', 'OPPORTUNITY', 'PREVIOUS_STAGE_ID', 'MOVED_TIME', ...extraFields],
+  });
+  return wonNextMonth
+    .filter(d => d.PREVIOUS_STAGE_ID === CONFIRMED && (d.MOVED_TIME || '') >= nextStart)
     .reduce((s, d) => s + netOpportunity(d), 0);
 }
 
@@ -601,7 +618,7 @@ async function refresh() {
       const [delta, monthReal, nextReal] = await Promise.all([
         collectOne(mgr.id, fromTime, today, confirmedIds, realizedIds),
         getMonthlyRealized(mgr.id),
-        getMonthlyRealized(mgr.id, nextStart),
+        getNextMonthRealized(mgr.id, nextStart),
       ]);
       const prev  = accumulated[mgr.id] || { calls:0, newDeals:0, confirmedSum:0, realizedSum:0, tasks:0 };
       const plan     = currentPlan(mgr.id);
