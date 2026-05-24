@@ -618,7 +618,7 @@ async function refresh() {
       const [delta, monthReal, nextReal] = await Promise.all([
         collectOne(mgr.id, fromTime, today, confirmedIds, realizedIds),
         getMonthlyRealized(mgr.id),
-        getNextMonthRealized(mgr.id, nextStart),
+        getMonthlyRealized(mgr.id, nextStart),
       ]);
       const prev  = accumulated[mgr.id] || { calls:0, newDeals:0, confirmedSum:0, realizedSum:0, tasks:0 };
       const plan     = currentPlan(mgr.id);
