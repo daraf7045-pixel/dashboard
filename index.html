@@ -216,6 +216,14 @@ function nextMonthStartMSK() {
   const m = d.getMonth() === 11 ? 1 : d.getMonth() + 2;
   return `${y}-${pad(m)}-01T00:00:00+03:00`;
 }
+function nextMonthEndMSK() {
+  const d = mskNow();
+  const m1 = d.getMonth() === 11 ? 1 : d.getMonth() + 2; // первый месяц следующего
+  const m2 = m1 === 12 ? 1 : m1 + 1;                     // месяц после следующего
+  const y  = m1 === 1 ? d.getFullYear() + 1 : d.getFullYear();
+  const y2 = m2 === 1 ? y + 1 : y;
+  return `${y2}-${pad(m2)}-01T00:00:00+03:00`;
+}
 function monthEndMSK() {
   const d = mskNow();
   const y = d.getFullYear(), m = d.getMonth() + 1;
@@ -396,21 +404,37 @@ async function getMonthlyRealized(userId, monthStart) {
     .reduce((s, d) => s + netOpportunity(d), 0);
 }
 
-// Следующий месяц: только сделки перешедшие в WON в следующем месяце
-// (пока месяц не начался — будет 0, как только начнётся — заполняется)
+// Следующий месяц: CONFIRMED с CLOSEDATE в следующем месяце + WON из CONFIRMED в следующем месяце
 async function getNextMonthRealized(userId, nextStart) {
+  const nextEnd = nextMonthEndMSK();
   const extraFields = [...COMMISSION_FIELDS];
-  const wonNextMonth = await paginateAll('crm.deal.list', {
-    filter: {
-      ASSIGNED_BY_ID: userId,
-      CATEGORY_ID,
-      STAGE_ID: 'C4:WON',
-      '>=DATE_MODIFY': nextStart,
-    },
-    select: ['ID', 'OPPORTUNITY', 'PREVIOUS_STAGE_ID', 'MOVED_TIME', ...extraFields],
-  });
-  return wonNextMonth
-    .filter(d => d.PREVIOUS_STAGE_ID === CONFIRMED && (d.MOVED_TIME || '') >= nextStart)
+  const [inConfirmedNext, wonNextMonth] = await Promise.all([
+    paginateAll('crm.deal.list', {
+      filter: {
+        ASSIGNED_BY_ID: userId,
+        CATEGORY_ID,
+        STAGE_ID: CONFIRMED,
+        '>=CLOSEDATE': nextStart,
+        '<CLOSEDATE':  nextEnd,
+      },
+      select: ['ID', 'OPPORTUNITY', 'CLOSEDATE', ...extraFields],
+    }),
+    paginateAll('crm.deal.list', {
+      filter: {
+        ASSIGNED_BY_ID: userId,
+        CATEGORY_ID,
+        STAGE_ID: 'C4:WON',
+        '>=DATE_MODIFY': nextStart,
+      },
+      select: ['ID', 'OPPORTUNITY', 'PREVIOUS_STAGE_ID', 'MOVED_TIME', ...extraFields],
+    }),
+  ]);
+  const wonFromConfirmed = wonNextMonth.filter(d =>
+    d.PREVIOUS_STAGE_ID === CONFIRMED && (d.MOVED_TIME || '') >= nextStart
+  );
+  const seen = new Set();
+  return [...inConfirmedNext, ...wonFromConfirmed]
+    .filter(d => { if (seen.has(d.ID)) return false; seen.add(d.ID); return true; })
     .reduce((s, d) => s + netOpportunity(d), 0);
 }
 
@@ -618,7 +642,7 @@ async function refresh() {
       const [delta, monthReal, nextReal] = await Promise.all([
         collectOne(mgr.id, fromTime, today, confirmedIds, realizedIds),
         getMonthlyRealized(mgr.id),
-        getMonthlyRealized(mgr.id, nextStart),
+        getNextMonthRealized(mgr.id, nextStart),
       ]);
       const prev  = accumulated[mgr.id] || { calls:0, newDeals:0, confirmedSum:0, realizedSum:0, tasks:0 };
       const plan     = currentPlan(mgr.id);
