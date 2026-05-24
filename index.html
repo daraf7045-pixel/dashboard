@@ -436,16 +436,16 @@ async function getPrevMonthRealized(userId, prevStart, prevEnd) {
         ASSIGNED_BY_ID: userId,
         CATEGORY_ID,
         STAGE_ID: 'C4:WON',
-        '>=DATE_MODIFY': prevStart,
-        '<DATE_MODIFY':  prevEnd,
+        '>=DATE_MODIFY': prevStart,   // без верхней границы — DATE_MODIFY меняется при любом обновлении
       },
       select: ['ID', 'OPPORTUNITY', 'PREVIOUS_STAGE_ID', 'MOVED_TIME', ...extraFields],
     }),
   ]);
+  // Фильтруем по MOVED_TIME на клиенте — точная дата перехода в WON
   const wonFromConfirmed = wonPrevMonth.filter(d =>
     d.PREVIOUS_STAGE_ID === CONFIRMED &&
     (d.MOVED_TIME || '') >= prevStart &&
-    (d.MOVED_TIME || '') < prevEnd
+    (d.MOVED_TIME || '') <  prevEnd
   );
   const seen = new Set();
   return [...inConfirmedPrev, ...wonFromConfirmed]
