@@ -25,8 +25,12 @@ header h1{font-size:18px;font-weight:700;color:#0f172a}
 .spinner{width:18px;height:18px;border:2px solid #e2e8f0;border-top-color:#2563eb;
          border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* Заголовки секций */
+.section-title{font-size:15px;font-weight:700;color:#0f172a;margin:20px 0 10px;
+               padding-left:4px;border-left:4px solid #2563eb;padding-left:10px}
 /* KPI */
-.kpi{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
+.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.kpi-day{grid-template-columns:repeat(5,1fr)}
 .kpi-card{background:#fff;border-radius:10px;padding:16px 18px;box-shadow:0 1px 4px rgba(0,0,0,.08);text-align:center;display:flex;flex-direction:column;justify-content:space-between}
 .kpi-card .lbl{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
 .kpi-card .val{font-size:20px;font-weight:700;white-space:nowrap;display:flex;align-items:center;justify-content:center}
@@ -63,6 +67,8 @@ tr:hover td{background:#f8fafc}
 .mgr-row:last-child{border-bottom:none}
 .mgr-row .rl{color:#64748b;font-size:13px}
 .mgr-row .rv{font-weight:600;font-size:14px}
+.card-section-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+                  color:#2563eb;margin:10px 0 4px;padding-top:8px;border-top:1px solid #e2e8f0}
 .rv.zero{color:#cbd5e1;font-weight:400}
 .rv.money{color:#16a34a}
 footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
@@ -105,21 +111,34 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
   <div class="err hidden" id="errBox"></div>
 
   <div id="dashboard" class="hidden">
-    <div class="kpi" id="kpi"></div>
-    <!-- Таблица: десктоп -->
+
+    <!-- ── БЛОК 1: Результаты за месяц ── -->
+    <div class="section-title">📅 Результаты за месяц</div>
+    <div class="kpi kpi-month" id="kpiMonth"></div>
     <table>
       <thead><tr>
         <th>Менеджер</th>
+        <th>Выручка (месяц)</th>
         <th>Остаток плана</th>
-        <th>Выручка</th>
+      </tr></thead>
+      <tbody id="tbodyMonth"></tbody>
+    </table>
+
+    <!-- ── БЛОК 2: Отчёт за день ── -->
+    <div class="section-title">📊 Отчёт за день</div>
+    <div class="kpi kpi-day" id="kpiDay"></div>
+    <table>
+      <thead><tr>
+        <th>Менеджер</th>
         <th>Звонки&nbsp;&gt;40с</th>
         <th>Новые&nbsp;сделки</th>
         <th>Подписано</th>
         <th>Успешно реализовано</th>
         <th>Задачи</th>
       </tr></thead>
-      <tbody id="tbody"></tbody>
+      <tbody id="tbodyDay"></tbody>
     </table>
+
     <!-- Карточки: мобиль -->
     <div class="mgr-cards" id="mgrCards"></div>
     <footer id="footer"></footer>
@@ -407,16 +426,22 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
   const totalPct          = totalPlan > 0 ? Math.round((totalMonthReal / totalPlan) * 100) : 0;
   const totalPctCls       = totalPct >= 80 ? 'green' : totalPct >= 60 ? 'orange' : 'red';
   const remCls            = totalRemaining <= 0 ? 'green' : 'red';
-  document.getElementById('kpi').innerHTML = `
+
+  // KPI — месяц
+  document.getElementById('kpiMonth').innerHTML = `
+    <div class="kpi-card"><div class="lbl">Общий план</div><div class="val blue">${fmtMoney(totalPlan)}</div></div>
+    <div class="kpi-card"><div class="lbl">Выручка</div><div class="val green">${fmtMoney(totalMonthReal)}</div></div>
+    <div class="kpi-card"><div class="lbl">Выполнение плана</div><div class="val ${totalPctCls}">${totalPct}%</div></div>
+    <div class="kpi-card"><div class="lbl">Остаток плана</div><div class="val ${remCls}">${totalRemaining<=0?'✓ Выполнен':fmtMoney(totalRemaining)}</div></div>
+  `;
+
+  // KPI — день
+  document.getElementById('kpiDay').innerHTML = `
     <div class="kpi-card"><div class="lbl">Звонки &gt;40с</div><div class="val blue">${fmtNum(totals.calls)}</div></div>
     <div class="kpi-card"><div class="lbl">Новые сделки</div><div class="val blue">${fmtNum(totals.newDeals)}</div></div>
     <div class="kpi-card"><div class="lbl">Подписано</div><div class="val green">${fmtMoney(totals.confirmedSum)}</div></div>
     <div class="kpi-card"><div class="lbl">Успешно реализовано</div><div class="val green">${fmtMoney(totals.realizedSum)}</div></div>
-    <div class="kpi-card"><div class="lbl">Выручка (месяц)</div><div class="val green">${fmtMoney(totalMonthReal)}</div></div>
     <div class="kpi-card"><div class="lbl">Задачи</div><div class="val blue">${fmtNum(totals.tasks)}</div></div>
-    <div class="kpi-card"><div class="lbl">Общий план (месяц)</div><div class="val blue">${fmtMoney(totalPlan)}</div></div>
-    <div class="kpi-card"><div class="lbl">Выполнение плана</div><div class="val ${totalPctCls}">${totalPct}%</div></div>
-    <div class="kpi-card"><div class="lbl">Остаток плана (месяц)</div><div class="val ${remCls}">${totalRemaining<=0?'✓ Выполнен':fmtMoney(totalRemaining)}</div></div>
   `;
 
   const sorted = [...managers].sort((a,b) => ((b.m||{}).realizedSum||0) - ((a.m||{}).realizedSum||0));
@@ -432,9 +457,9 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
     <circle cx="32" cy="24" r="6" fill="#FFD54F" opacity=".5"/>
   </svg>`;
 
-  // Таблица (десктоп)
-  document.getElementById('tbody').innerHTML = sorted.map(({ name, m }) => {
-    if (!m) return `<tr><td class="mname">${name}</td><td colspan="7" class="zero">—</td></tr>`;
+  // Таблица — месяц
+  document.getElementById('tbodyMonth').innerHTML = sorted.map(({ name, m }) => {
+    if (!m) return `<tr><td class="mname">${name}</td><td colspan="2" class="zero">—</td></tr>`;
     const td = (v, fn=fmtNum) => { const s=fn(v); return `<td class="${s==='—'?'zero':fn===fmtMoney&&s!=='—'?'money':''}">${s}</td>`; };
     const rem = m.remaining;
     const trophy = rem <= 0 ? TROPHY : '';
@@ -444,7 +469,14 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
     const remTd = rem <= 0
       ? `<td class="plan-done">✓ Выполнен</td>`
       : `<td class="plan-left">${fmtMoney(rem)}</td>`;
-    return `<tr><td class="mname">${name}${trophy}${pctBadge}</td>${remTd}${td(m.monthlyRealized,fmtMoney)}${td(m.calls)}${td(m.newDeals)}${td(m.confirmedSum,fmtMoney)}${td(m.realizedSum,fmtMoney)}${td(m.tasks)}</tr>`;
+    return `<tr><td class="mname">${name}${trophy}${pctBadge}</td>${td(m.monthlyRealized,fmtMoney)}${remTd}</tr>`;
+  }).join('');
+
+  // Таблица — день
+  document.getElementById('tbodyDay').innerHTML = sorted.map(({ name, m }) => {
+    if (!m) return `<tr><td class="mname">${name}</td><td colspan="5" class="zero">—</td></tr>`;
+    const td = (v, fn=fmtNum) => { const s=fn(v); return `<td class="${s==='—'?'zero':fn===fmtMoney&&s!=='—'?'money':''}">${s}</td>`; };
+    return `<tr><td class="mname">${name}</td>${td(m.calls)}${td(m.newDeals)}${td(m.confirmedSum,fmtMoney)}${td(m.realizedSum,fmtMoney)}${td(m.tasks)}</tr>`;
   }).join('');
 
   // Карточки (мобиль)
@@ -462,8 +494,10 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
     const remCls = rem <= 0 ? 'money' : 'plan-left-txt';
     return `<div class="mgr-card">
       <div class="mgr-card-name">${name}${trophy}${pctBadge}</div>
-      ${row('Остаток плана', remVal, remCls)}
+      <div class="card-section-lbl">За месяц</div>
       ${row('Выручка', fmtMoney(m.monthlyRealized), 'money')}
+      ${row('Остаток плана', remVal, remCls)}
+      <div class="card-section-lbl">За день</div>
       ${row('Звонки &gt;40с', fmtNum(m.calls), c(m.calls))}
       ${row('Новые сделки', fmtNum(m.newDeals), c(m.newDeals))}
       ${row('Подписано', fmtMoney(m.confirmedSum), c(m.confirmedSum,fmtMoney))}
