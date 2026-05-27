@@ -76,6 +76,9 @@ tr:hover td{background:#f8fafc}
 .rv.money{color:#16a34a}
 footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
 .hidden{display:none!important}
+.date-pick{border:2px solid #94a3b8;border-radius:8px;padding:5px 8px;font-size:12px;
+           color:#1e293b;background:#fff;cursor:pointer;height:34px}
+.date-pick:focus{outline:none;border-color:#2563eb}
 .err{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;
      padding:14px 18px;color:#dc2626;font-size:13px;margin-bottom:16px}
 
@@ -139,6 +142,8 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
       <div style="display:flex;gap:6px">
         <button class="btn-month" id="btnDayYest"  onclick="setDayView('yesterday')" style="background:#fff;color:#2563eb;border:2px solid #2563eb;padding:6px 12px;font-size:12px">Вчера</button>
         <button class="btn-month" id="btnDayToday" onclick="setDayView('today')"     style="background:#2563eb;color:#fff;border:2px solid #2563eb;padding:6px 12px;font-size:12px">Сегодня</button>
+        <input type="date" id="inputCustomDate" class="date-pick" onchange="setDayView('today')" title="Выбрать дату">
+        <button class="btn-month" id="btnCustomDay" onclick="showCustomDay()" style="background:#fff;color:#2563eb;border:2px solid #2563eb;padding:6px 12px;font-size:12px">Показать</button>
       </div>
     </div>
     <div class="kpi kpi-day" id="kpiDay"></div>
@@ -530,13 +535,20 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
   const prevM = curM === 1 ? 12 : curM - 1;
   const shownMonth = isNext ? monthNames[nextM] : isPrev ? monthNames[prevM] : monthNames[curM];
   const isYesterday = dayViewMode === 'yesterday';
+  const isCustom    = dayViewMode === 'custom';
   const ydStr = yesterdayMSK();
-  const dayPeriodLabel = isYesterday ? `Вчера: ${ydStr}` : `Период дня: 00:00 – ${periodEnd} МСК`;
+  const dayPeriodLabel = isCustom
+    ? `Дата: ${customDate}`
+    : isYesterday
+    ? `Вчера: ${ydStr}`
+    : `Период дня: 00:00 – ${periodEnd} МСК`;
   document.getElementById('meta').textContent =
     `${shownMonth}  ·  ${dayPeriodLabel}  ·  Обновлено: ${lastCheck.slice(11,16)} МСК`;
-  const dayData = m => isYesterday
-    ? { calls: m.ydCalls||0, newDeals: m.ydNewDeals||0, confirmedSum: m.ydConfirmedSum||0, realizedSum: m.ydRealizedSum||0, tasks: m.ydTasks||0 }
-    : { calls: m.calls||0,   newDeals: m.newDeals||0,   confirmedSum: m.confirmedSum||0,   realizedSum: m.realizedSum||0,   tasks: m.tasks||0   };
+  const dayData = m => {
+    if (isCustom)    { const cd = customDayData[m._id]||{}; return { calls:cd.calls||0, newDeals:cd.newDeals||0, confirmedSum:cd.confirmedSum||0, realizedSum:cd.realizedSum||0, tasks:cd.tasks||0 }; }
+    if (isYesterday) return { calls:m.ydCalls||0,  newDeals:m.ydNewDeals||0,  confirmedSum:m.ydConfirmedSum||0,  realizedSum:m.ydRealizedSum||0,  tasks:m.ydTasks||0  };
+    return             { calls:m.calls||0,    newDeals:m.newDeals||0,    confirmedSum:m.confirmedSum||0,    realizedSum:m.realizedSum||0,    tasks:m.tasks||0    };
+  };
   const totals = { calls:0, newDeals:0, confirmedSum:0, realizedSum:0, tasks:0 };
   for (const { m } of managers) if (m) { const dd=dayData(m); for (const k of Object.keys(totals)) totals[k] += dd[k]||0; }
 
@@ -582,7 +594,9 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
   document.getElementById('secMonthTitle').textContent =
     `📅 Результаты за месяц — ${shownMonth}`;
   document.getElementById('secDayTitle').textContent =
-    isYesterday ? `📊 Отчёт за вчера — ${ydStr}` : `📊 Отчёт за день`;
+    isCustom    ? `📊 Отчёт за ${customDate}`
+    : isYesterday ? `📊 Отчёт за вчера — ${ydStr}`
+    : `📊 Отчёт за день`;
 
   // Таблица — месяц
   document.getElementById('tbodyMonth').innerHTML = sorted.map(({ name, m }) => {
@@ -632,7 +646,7 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
       ${row('План', fmtMoney(mPlan), 'money')}
       ${row('Выручка', fmtMoney(mReal), 'money')}
       ${row('Остаток плана', remVal, remCls)}
-      <div class="card-section-lbl">${isYesterday ? 'За вчера' : 'За сегодня'}</div>
+      <div class="card-section-lbl">${isCustom ? `За ${customDate}` : isYesterday ? 'За вчера' : 'За сегодня'}</div>
       ${(dd => [
         row('Звонки &gt;40с', fmtNum(dd.calls), c(dd.calls)),
         row('Новые сделки', fmtNum(dd.newDeals), c(dd.newDeals)),
@@ -649,18 +663,89 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
   showDash(true);
 }
 
-// ── Переключение месяца ───────────────────────────────────────────────────────
-let viewMode = 'current';
+// ── Переключение месяца / дня ────────────────────────────────────────────────
+let viewMode    = 'current';
 let dayViewMode = 'today';
+let customDate  = '';
+let customDayData = {};
+let customDayLoading = false;
 let _lastRenderArgs = null;
+
+function loadCustomDayCache(d) {
+  try { return JSON.parse(localStorage.getItem(`bx_dash_cd2_${d}`) || 'null'); }
+  catch { return null; }
+}
+function saveCustomDayCache(d, data) {
+  localStorage.setItem(`bx_dash_cd2_${d}`, JSON.stringify(data));
+}
+
+function updateDayButtons() {
+  const active = 'background:#2563eb;color:#fff;border:2px solid #2563eb;padding:6px 12px;font-size:12px';
+  const idle   = 'background:#fff;color:#2563eb;border:2px solid #2563eb;padding:6px 12px;font-size:12px';
+  document.getElementById('btnDayYest').style.cssText   = dayViewMode === 'yesterday' ? active : idle;
+  document.getElementById('btnDayToday').style.cssText  = dayViewMode === 'today'     ? active : idle;
+  document.getElementById('btnCustomDay').style.cssText = dayViewMode === 'custom'    ? active : idle;
+}
 
 function setDayView(mode) {
   dayViewMode = mode;
-  const active = 'background:#2563eb;color:#fff;border:2px solid #2563eb;padding:6px 12px;font-size:12px';
-  const idle   = 'background:#fff;color:#2563eb;border:2px solid #2563eb;padding:6px 12px;font-size:12px';
-  document.getElementById('btnDayYest').style.cssText  = mode === 'yesterday' ? active : idle;
-  document.getElementById('btnDayToday').style.cssText = mode === 'today'     ? active : idle;
+  updateDayButtons();
   if (_lastRenderArgs) renderDashboard(..._lastRenderArgs);
+}
+
+async function showCustomDay() {
+  const input = document.getElementById('inputCustomDate');
+  const dateStr = input.value; // YYYY-MM-DD
+  if (!dateStr || customDayLoading) return;
+
+  // Если кеш есть — сразу рендерим
+  const cached = loadCustomDayCache(dateStr);
+  if (cached) {
+    customDate = dateStr;
+    customDayData = cached;
+    setDayView('custom');
+    return;
+  }
+
+  // Загружаем с API
+  customDayLoading = true;
+  const btn = document.getElementById('btnCustomDay');
+  btn.disabled = true;
+  btn.textContent = '⏳';
+  showStatus(true);
+  setStatus(`Загрузка данных за ${dateStr}...`);
+
+  try {
+    const fromTime = `${dateStr}T00:00:00+03:00`;
+    const trans = await loadTransitions(fromTime, dateStr);
+    const confIds = trans[CONFIRMED] || new Set();
+    const realIds  = trans[REALIZED]  || new Set();
+
+    const result = {};
+    for (const mgr of MANAGERS) {
+      setStatus(`Загрузка за ${dateStr}: ${mgr.name}...`);
+      const [calls, newDeals, conf, real, tasks] = await Promise.all([
+        getCalls(mgr.id, fromTime, dateStr),
+        getNewDeals(mgr.id, fromTime, dateStr),
+        getConfirmed(mgr.id, confIds),
+        getRealized(mgr.id, realIds),
+        getTasks(mgr.id, fromTime, dateStr),
+      ]);
+      result[mgr.id] = { calls, newDeals, confirmedSum: conf, realizedSum: real, tasks };
+    }
+
+    saveCustomDayCache(dateStr, result);
+    customDate  = dateStr;
+    customDayData = result;
+    setDayView('custom');
+  } catch(e) {
+    showErr('Ошибка: ' + e.message);
+  } finally {
+    customDayLoading = false;
+    btn.disabled = false;
+    btn.textContent = 'Показать';
+    showStatus(false);
+  }
 }
 
 function setView(mode) {
@@ -746,6 +831,7 @@ async function refresh() {
       const nextPlan = currentPlan(mgr.id, nextMon);
       const prevPlan = currentPlan(mgr.id, prevMon);
       const merged = {
+        _id:                 mgr.id,
         calls:               prev.calls        + delta.calls,
         newDeals:            prev.newDeals     + delta.newDeals,
         confirmedSum:        prev.confirmedSum + delta.confirmedSum,
@@ -788,6 +874,7 @@ async function refresh() {
 }
 
 // Запуск при открытии страницы
+document.getElementById('inputCustomDate').value = todayMSK();
 refresh();
 </script>
 </body>
