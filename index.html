@@ -531,12 +531,11 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
                       7:'Июль',8:'Август',9:'Сентябрь',10:'Октябрь',11:'Ноябрь',12:'Декабрь'};
   const prevM = curM === 1 ? 12 : curM - 1;
   const shownMonth = isNext ? monthNames[nextM] : isPrev ? monthNames[prevM] : monthNames[curM];
+  const isYesterday = dayViewMode === 'yesterday';
+  const ydStr = yesterdayMSK();
   const dayPeriodLabel = isYesterday ? `Вчера: ${ydStr}` : `Период дня: 00:00 – ${periodEnd} МСК`;
   document.getElementById('meta').textContent =
     `${shownMonth}  ·  ${dayPeriodLabel}  ·  Обновлено: ${lastCheck.slice(11,16)} МСК`;
-
-  const isYesterday = dayViewMode === 'yesterday';
-  const ydStr = yesterdayMSK();
   const dayData = m => isYesterday
     ? { calls: m.ydCalls||0, newDeals: m.ydNewDeals||0, confirmedSum: m.ydConfirmedSum||0, realizedSum: m.ydRealizedSum||0, tasks: m.ydTasks||0 }
     : { calls: m.calls||0,   newDeals: m.newDeals||0,   confirmedSum: m.confirmedSum||0,   realizedSum: m.realizedSum||0,   tasks: m.tasks||0   };
