@@ -346,10 +346,8 @@ async function getConfirmed(userId, ids) {
 }
 
 async function getRealized(userId, ids) {
-  const deals = await stageDeals(ids, userId, ['MODIFY_BY_ID']);
-  return deals
-    .filter(d => String(d.MODIFY_BY_ID) === String(userId))
-    .reduce((s,d) => s + parseFloat(d.OPPORTUNITY||0), 0);
+  const deals = await stageDeals(ids, userId);
+  return deals.reduce((s,d) => s + parseFloat(d.OPPORTUNITY||0), 0);
 }
 
 async function getCalls(userId, fromTime, today) {
@@ -495,19 +493,19 @@ async function collectOne(userId, fromTime, today, confirmedIds, realizedIds) {
 // ── Состояние (localStorage) ──────────────────────────────────────────────────
 function loadState(today) {
   try {
-    const s = JSON.parse(localStorage.getItem('bx_dash_state') || 'null');
+    const s = JSON.parse(localStorage.getItem('bx_dash_state_v2') || 'null');
     return s?.date === today ? s : null;
   } catch { return null; }
 }
 function saveState(today, lastCheck, metrics) {
-  localStorage.setItem('bx_dash_state', JSON.stringify({ date: today, lastCheck, metrics }));
+  localStorage.setItem('bx_dash_state_v2', JSON.stringify({ date: today, lastCheck, metrics }));
 }
 function loadYesterdayCache(yd) {
-  try { return JSON.parse(localStorage.getItem(`bx_dash_yd_${yd}`) || 'null'); }
+  try { return JSON.parse(localStorage.getItem(`bx_dash_yd2_${yd}`) || 'null'); }
   catch { return null; }
 }
 function saveYesterdayCache(yd, data) {
-  localStorage.setItem(`bx_dash_yd_${yd}`, JSON.stringify(data));
+  localStorage.setItem(`bx_dash_yd2_${yd}`, JSON.stringify(data));
 }
 
 // ── UI ────────────────────────────────────────────────────────────────────────
