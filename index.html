@@ -134,7 +134,13 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
     </table>
 
     <!-- ── БЛОК 2: Отчёт за день ── -->
-    <div class="section-title">📊 Отчёт за день</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px">
+      <div class="section-title" style="margin:0" id="secDayTitle">📊 Отчёт за день</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn-month" id="btnDayYest"  onclick="setDayView('yesterday')" style="background:#fff;color:#2563eb;border:2px solid #2563eb;padding:6px 12px;font-size:12px">Вчера</button>
+        <button class="btn-month" id="btnDayToday" onclick="setDayView('today')"     style="background:#2563eb;color:#fff;border:2px solid #2563eb;padding:6px 12px;font-size:12px">Сегодня</button>
+      </div>
+    </div>
     <div class="kpi kpi-day" id="kpiDay"></div>
     <table>
       <thead><tr>
@@ -190,6 +196,11 @@ function mskNow() {
 }
 function todayMSK() {
   const d = mskNow();
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function yesterdayMSK() {
+  const d = mskNow();
+  d.setDate(d.getDate() - 1);
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 }
 function tomorrowOf(ymd) {
@@ -491,6 +502,13 @@ function loadState(today) {
 function saveState(today, lastCheck, metrics) {
   localStorage.setItem('bx_dash_state', JSON.stringify({ date: today, lastCheck, metrics }));
 }
+function loadYesterdayCache(yd) {
+  try { return JSON.parse(localStorage.getItem(`bx_dash_yd_${yd}`) || 'null'); }
+  catch { return null; }
+}
+function saveYesterdayCache(yd, data) {
+  localStorage.setItem(`bx_dash_yd_${yd}`, JSON.stringify(data));
+}
 
 // ── UI ────────────────────────────────────────────────────────────────────────
 function setStatus(txt) { document.getElementById('statusText').textContent = txt; }
@@ -513,11 +531,17 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
                       7:'Июль',8:'Август',9:'Сентябрь',10:'Октябрь',11:'Ноябрь',12:'Декабрь'};
   const prevM = curM === 1 ? 12 : curM - 1;
   const shownMonth = isNext ? monthNames[nextM] : isPrev ? monthNames[prevM] : monthNames[curM];
+  const dayPeriodLabel = isYesterday ? `Вчера: ${ydStr}` : `Период дня: 00:00 – ${periodEnd} МСК`;
   document.getElementById('meta').textContent =
-    `${shownMonth}  ·  Период дня: 00:00 – ${periodEnd} МСК  ·  Обновлено: ${lastCheck.slice(11,16)} МСК`;
+    `${shownMonth}  ·  ${dayPeriodLabel}  ·  Обновлено: ${lastCheck.slice(11,16)} МСК`;
 
+  const isYesterday = dayViewMode === 'yesterday';
+  const ydStr = yesterdayMSK();
+  const dayData = m => isYesterday
+    ? { calls: m.ydCalls||0, newDeals: m.ydNewDeals||0, confirmedSum: m.ydConfirmedSum||0, realizedSum: m.ydRealizedSum||0, tasks: m.ydTasks||0 }
+    : { calls: m.calls||0,   newDeals: m.newDeals||0,   confirmedSum: m.confirmedSum||0,   realizedSum: m.realizedSum||0,   tasks: m.tasks||0   };
   const totals = { calls:0, newDeals:0, confirmedSum:0, realizedSum:0, tasks:0 };
-  for (const { m } of managers) if (m) for (const k of Object.keys(totals)) totals[k] += m[k]||0;
+  for (const { m } of managers) if (m) { const dd=dayData(m); for (const k of Object.keys(totals)) totals[k] += dd[k]||0; }
 
   // Выбираем данные нужного месяца
   const totalPlan      = managers.reduce((s,{m}) => s + (isNext ? (m?.nextPlan||0) : isPrev ? (m?.prevPlan||0) : (m?.plan||0)), 0);
@@ -557,9 +581,11 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
     <circle cx="32" cy="24" r="6" fill="#FFD54F" opacity=".5"/>
   </svg>`;
 
-  // Заголовок месяца
+  // Заголовки секций
   document.getElementById('secMonthTitle').textContent =
     `📅 Результаты за месяц — ${shownMonth}`;
+  document.getElementById('secDayTitle').textContent =
+    isYesterday ? `📊 Отчёт за вчера — ${ydStr}` : `📊 Отчёт за день`;
 
   // Таблица — месяц
   document.getElementById('tbodyMonth').innerHTML = sorted.map(({ name, m }) => {
@@ -584,7 +610,8 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
   document.getElementById('tbodyDay').innerHTML = sorted.map(({ name, m }) => {
     if (!m) return `<tr><td class="mname">${name}</td><td colspan="5" class="zero">—</td></tr>`;
     const td = (v, fn=fmtNum) => { const s=fn(v); return `<td class="${s==='—'?'zero':fn===fmtMoney&&s!=='—'?'money':''}">${s}</td>`; };
-    return `<tr><td class="mname">${name}</td>${td(m.calls)}${td(m.newDeals)}${td(m.confirmedSum,fmtMoney)}${td(m.realizedSum,fmtMoney)}${td(m.tasks)}</tr>`;
+    const dd = dayData(m);
+    return `<tr><td class="mname">${name}</td>${td(dd.calls)}${td(dd.newDeals)}${td(dd.confirmedSum,fmtMoney)}${td(dd.realizedSum,fmtMoney)}${td(dd.tasks)}</tr>`;
   }).join('');
 
   // Карточки (мобиль)
@@ -608,12 +635,14 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
       ${row('План', fmtMoney(mPlan), 'money')}
       ${row('Выручка', fmtMoney(mReal), 'money')}
       ${row('Остаток плана', remVal, remCls)}
-      <div class="card-section-lbl">За день</div>
-      ${row('Звонки &gt;40с', fmtNum(m.calls), c(m.calls))}
-      ${row('Новые сделки', fmtNum(m.newDeals), c(m.newDeals))}
-      ${row('Подписано', fmtMoney(m.confirmedSum), c(m.confirmedSum,fmtMoney))}
-      ${row('Успешно реализовано', fmtMoney(m.realizedSum), c(m.realizedSum,fmtMoney))}
-      ${row('Задачи', fmtNum(m.tasks), c(m.tasks))}
+      <div class="card-section-lbl">${isYesterday ? 'За вчера' : 'За сегодня'}</div>
+      ${(dd => [
+        row('Звонки &gt;40с', fmtNum(dd.calls), c(dd.calls)),
+        row('Новые сделки', fmtNum(dd.newDeals), c(dd.newDeals)),
+        row('Подписано', fmtMoney(dd.confirmedSum), c(dd.confirmedSum,fmtMoney)),
+        row('Успешно реализовано', fmtMoney(dd.realizedSum), c(dd.realizedSum,fmtMoney)),
+        row('Задачи', fmtNum(dd.tasks), c(dd.tasks)),
+      ].join(''))(dayData(m))}
     </div>`;
   }).join('');
 
@@ -625,7 +654,17 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
 
 // ── Переключение месяца ───────────────────────────────────────────────────────
 let viewMode = 'current';
+let dayViewMode = 'today';
 let _lastRenderArgs = null;
+
+function setDayView(mode) {
+  dayViewMode = mode;
+  const active = 'background:#2563eb;color:#fff;border:2px solid #2563eb;padding:6px 12px;font-size:12px';
+  const idle   = 'background:#fff;color:#2563eb;border:2px solid #2563eb;padding:6px 12px;font-size:12px';
+  document.getElementById('btnDayYest').style.cssText  = mode === 'yesterday' ? active : idle;
+  document.getElementById('btnDayToday').style.cssText = mode === 'today'     ? active : idle;
+  if (_lastRenderArgs) renderDashboard(..._lastRenderArgs);
+}
 
 function setView(mode) {
   viewMode = mode;
@@ -665,6 +704,29 @@ async function refresh() {
     const confirmedIds = transitions[CONFIRMED] || new Set();
     const realizedIds  = transitions[REALIZED]  || new Set();
 
+    // Данные за вчера (кешируются — день уже завершён)
+    const yesterday = yesterdayMSK();
+    const ydFromTime = `${yesterday}T00:00:00+03:00`;
+    let ydMetricsMap = loadYesterdayCache(yesterday);
+    if (!ydMetricsMap) {
+      setStatus('Загрузка данных за вчера...');
+      const ydTrans = await loadTransitions(ydFromTime, yesterday);
+      const ydConfIds = ydTrans[CONFIRMED] || new Set();
+      const ydRealIds = ydTrans[REALIZED]  || new Set();
+      ydMetricsMap = {};
+      for (const mgr of MANAGERS) {
+        const [calls, newDeals, conf, real, tasks] = await Promise.all([
+          getCalls(mgr.id, ydFromTime, yesterday),
+          getNewDeals(mgr.id, ydFromTime, yesterday),
+          getConfirmed(mgr.id, ydConfIds),
+          getRealized(mgr.id, ydRealIds),
+          getTasks(mgr.id, ydFromTime, yesterday),
+        ]);
+        ydMetricsMap[mgr.id] = { calls, newDeals, confirmedSum: conf, realizedSum: real, tasks };
+      }
+      saveYesterdayCache(yesterday, ydMetricsMap);
+    }
+
     const accumulated = state?.metrics || {};
     const results = [];
 
@@ -682,6 +744,7 @@ async function refresh() {
         getPrevMonthRealized(mgr.id, prevStart, prevEnd),
       ]);
       const prev  = accumulated[mgr.id] || { calls:0, newDeals:0, confirmedSum:0, realizedSum:0, tasks:0 };
+      const yd    = ydMetricsMap[mgr.id] || { calls:0, newDeals:0, confirmedSum:0, realizedSum:0, tasks:0 };
       const plan     = currentPlan(mgr.id);
       const nextPlan = currentPlan(mgr.id, nextMon);
       const prevPlan = currentPlan(mgr.id, prevMon);
@@ -691,6 +754,11 @@ async function refresh() {
         confirmedSum:        prev.confirmedSum + delta.confirmedSum,
         realizedSum:         prev.realizedSum  + delta.realizedSum,
         tasks:               prev.tasks        + delta.tasks,
+        ydCalls:             yd.calls,
+        ydNewDeals:          yd.newDeals,
+        ydConfirmedSum:      yd.confirmedSum,
+        ydRealizedSum:       yd.realizedSum,
+        ydTasks:             yd.tasks,
         monthlyRealized:     monthReal,
         plan:                plan,
         remaining:           plan - monthReal,
