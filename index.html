@@ -407,6 +407,55 @@ function netOpportunity(d) {
   return opp - comm;
 }
 
+// ── Дневные суммы (прошлые / произвольные даты) — через MOVED_TIME ──────────
+// Надёжнее, чем stagehistory: тот же подход, что и в месячных расчётах
+async function getDailyRealized(userId, dateStr) {
+  const fromTime = `${dateStr}T00:00:00+03:00`;
+  const toTime   = `${tomorrowOf(dateStr)}T00:00:00+03:00`;
+  const deals = await paginateAll('crm.deal.list', {
+    filter: { ASSIGNED_BY_ID: userId, CATEGORY_ID, STAGE_ID: REALIZED, '>=DATE_MODIFY': fromTime },
+    select: ['ID', 'OPPORTUNITY', 'MOVED_TIME', ...COMMISSION_FIELDS],
+  });
+  return deals
+    .filter(d => (d.MOVED_TIME||'') >= fromTime && (d.MOVED_TIME||'') < toTime)
+    .reduce((s, d) => s + netOpportunity(d), 0);
+}
+
+async function getDailyConfirmed(userId, dateStr) {
+  const fromTime = `${dateStr}T00:00:00+03:00`;
+  const toTime   = `${tomorrowOf(dateStr)}T00:00:00+03:00`;
+  // Текущие CONFIRMED, вошедшие в стадию в этот день
+  const inConf = await paginateAll('crm.deal.list', {
+    filter: { ASSIGNED_BY_ID: userId, CATEGORY_ID, STAGE_ID: CONFIRMED, '>=DATE_MODIFY': fromTime },
+    select: ['ID', 'OPPORTUNITY', 'MOVED_TIME', ...COMMISSION_FIELDS],
+  });
+  // + те, что в тот же день ушли дальше в WON из CONFIRMED
+  const toWon = await paginateAll('crm.deal.list', {
+    filter: { ASSIGNED_BY_ID: userId, CATEGORY_ID, STAGE_ID: REALIZED, '>=DATE_MODIFY': fromTime },
+    select: ['ID', 'OPPORTUNITY', 'PREVIOUS_STAGE_ID', 'MOVED_TIME', ...COMMISSION_FIELDS],
+  });
+  const wonFromConf = toWon.filter(d =>
+    d.PREVIOUS_STAGE_ID === CONFIRMED &&
+    (d.MOVED_TIME||'') >= fromTime && (d.MOVED_TIME||'') < toTime
+  );
+  const seen = new Set();
+  return [...inConf.filter(d => (d.MOVED_TIME||'') >= fromTime && (d.MOVED_TIME||'') < toTime), ...wonFromConf]
+    .filter(d => { if (seen.has(d.ID)) return false; seen.add(d.ID); return true; })
+    .reduce((s, d) => s + netOpportunity(d), 0);
+}
+
+async function collectDayMetrics(userId, dateStr) {
+  const fromTime = `${dateStr}T00:00:00+03:00`;
+  const [calls, newDeals, confirmedSum, realizedSum, tasks] = await Promise.all([
+    getCalls(userId, fromTime, dateStr),
+    getNewDeals(userId, fromTime, dateStr),
+    getDailyConfirmed(userId, dateStr),
+    getDailyRealized(userId, dateStr),
+    getTasks(userId, fromTime, dateStr),
+  ]);
+  return { calls, newDeals, confirmedSum, realizedSum, tasks };
+}
+
 // Текущий месяц: сделки в CONFIRMED + перешедшие из CONFIRMED в WON в этом месяце
 async function getMonthlyRealized(userId, monthStart) {
   if (!monthStart) monthStart = monthStartMSK();
@@ -501,19 +550,19 @@ async function collectOne(userId, fromTime, today, confirmedIds, realizedIds) {
 // ── Состояние (localStorage) ──────────────────────────────────────────────────
 function loadState(today) {
   try {
-    const s = JSON.parse(localStorage.getItem('bx_dash_state_v3') || 'null');
+    const s = JSON.parse(localStorage.getItem('bx_dash_state_v4') || 'null');
     return s?.date === today ? s : null;
   } catch { return null; }
 }
 function saveState(today, lastCheck, metrics) {
-  localStorage.setItem('bx_dash_state_v3', JSON.stringify({ date: today, lastCheck, metrics }));
+  localStorage.setItem('bx_dash_state_v4', JSON.stringify({ date: today, lastCheck, metrics }));
 }
 function loadYesterdayCache(yd) {
-  try { return JSON.parse(localStorage.getItem(`bx_dash_yd4_${yd}`) || 'null'); }
+  try { return JSON.parse(localStorage.getItem(`bx_dash_yd5_${yd}`) || 'null'); }
   catch { return null; }
 }
 function saveYesterdayCache(yd, data) {
-  localStorage.setItem(`bx_dash_yd4_${yd}`, JSON.stringify(data));
+  localStorage.setItem(`bx_dash_yd5_${yd}`, JSON.stringify(data));
 }
 
 // ── UI ────────────────────────────────────────────────────────────────────────
@@ -675,11 +724,11 @@ let customDayLoading = false;
 let _lastRenderArgs = null;
 
 function loadCustomDayCache(d) {
-  try { return JSON.parse(localStorage.getItem(`bx_dash_cd4_${d}`) || 'null'); }
+  try { return JSON.parse(localStorage.getItem(`bx_dash_cd5_${d}`) || 'null'); }
   catch { return null; }
 }
 function saveCustomDayCache(d, data) {
-  localStorage.setItem(`bx_dash_cd4_${d}`, JSON.stringify(data));
+  localStorage.setItem(`bx_dash_cd5_${d}`, JSON.stringify(data));
 }
 
 function updateDayButtons() {
@@ -719,24 +768,11 @@ async function showCustomDay() {
   setStatus(`Загрузка данных за ${dateStr}...`);
 
   try {
-    const fromTime = `${dateStr}T00:00:00+03:00`;
-    const trans = await loadTransitions(fromTime, dateStr);
-    const confIds = trans[CONFIRMED] || new Set();
-    const realIds  = trans[REALIZED]  || new Set();
-
     const result = {};
     for (const mgr of MANAGERS) {
       setStatus(`Загрузка за ${dateStr}: ${mgr.name}...`);
-      const [calls, newDeals, conf, real, tasks] = await Promise.all([
-        getCalls(mgr.id, fromTime, dateStr),
-        getNewDeals(mgr.id, fromTime, dateStr),
-        getConfirmed(mgr.id, confIds),
-        getRealized(mgr.id, realIds),
-        getTasks(mgr.id, fromTime, dateStr),
-      ]);
-      result[mgr.id] = { calls, newDeals, confirmedSum: conf, realizedSum: real, tasks };
+      result[mgr.id] = await collectDayMetrics(mgr.id, dateStr);
     }
-
     saveCustomDayCache(dateStr, result);
     customDate  = dateStr;
     customDayData = result;
@@ -791,23 +827,13 @@ async function refresh() {
 
     // Данные за вчера (кешируются — день уже завершён)
     const yesterday = yesterdayMSK();
-    const ydFromTime = `${yesterday}T00:00:00+03:00`;
     let ydMetricsMap = loadYesterdayCache(yesterday);
     if (!ydMetricsMap) {
       setStatus('Загрузка данных за вчера...');
-      const ydTrans = await loadTransitions(ydFromTime, yesterday);
-      const ydConfIds = ydTrans[CONFIRMED] || new Set();
-      const ydRealIds = ydTrans[REALIZED]  || new Set();
       ydMetricsMap = {};
       for (const mgr of MANAGERS) {
-        const [calls, newDeals, conf, real, tasks] = await Promise.all([
-          getCalls(mgr.id, ydFromTime, yesterday),
-          getNewDeals(mgr.id, ydFromTime, yesterday),
-          getConfirmed(mgr.id, ydConfIds),
-          getRealized(mgr.id, ydRealIds),
-          getTasks(mgr.id, ydFromTime, yesterday),
-        ]);
-        ydMetricsMap[mgr.id] = { calls, newDeals, confirmedSum: conf, realizedSum: real, tasks };
+        setStatus(`Вчера: ${mgr.name}...`);
+        ydMetricsMap[mgr.id] = await collectDayMetrics(mgr.id, yesterday);
       }
       saveYesterdayCache(yesterday, ydMetricsMap);
     }
