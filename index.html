@@ -522,7 +522,10 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
   // Выбираем данные нужного месяца
   const totalPlan      = managers.reduce((s,{m}) => s + (isNext ? (m?.nextPlan||0) : isPrev ? (m?.prevPlan||0) : (m?.plan||0)), 0);
   const totalMonthReal = managers.reduce((s,{m}) => s + (isNext ? (m?.nextMonthlyRealized||0) : isPrev ? (m?.prevMonthlyRealized||0) : (m?.monthlyRealized||0)), 0);
-  const totalRemaining = managers.reduce((s,{m}) => s + (isNext ? (m?.nextRemaining||0) : isPrev ? (m?.prevRemaining||0) : (m?.remaining||0)), 0);
+  const totalRemaining = managers.reduce((s,{m}) => {
+    const r = isNext ? (m?.nextRemaining||0) : isPrev ? (m?.prevRemaining||0) : (m?.remaining||0);
+    return s + Math.max(0, r); // перевыполнение не вычитается из общего остатка
+  }, 0);
   const totalPct       = totalPlan > 0 ? Math.round((totalMonthReal / totalPlan) * 100) : 0;
   const totalPctCls    = totalPct >= 80 ? 'green' : totalPct >= 60 ? 'orange' : 'red';
   const remCls         = totalRemaining <= 0 ? 'green' : 'red';
