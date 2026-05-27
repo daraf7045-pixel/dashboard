@@ -346,13 +346,13 @@ async function stageDeals(ids, userId, extra=[]) {
 }
 
 async function getConfirmed(userId, ids) {
-  const deals = await stageDeals(ids, userId);
-  return deals.reduce((s,d) => s + parseFloat(d.OPPORTUNITY||0), 0);
+  const deals = await stageDeals(ids, userId, [...COMMISSION_FIELDS]);
+  return deals.reduce((s,d) => s + netOpportunity(d), 0);
 }
 
 async function getRealized(userId, ids) {
-  const deals = await stageDeals(ids, userId);
-  return deals.reduce((s,d) => s + parseFloat(d.OPPORTUNITY||0), 0);
+  const deals = await stageDeals(ids, userId, [...COMMISSION_FIELDS]);
+  return deals.reduce((s,d) => s + netOpportunity(d), 0);
 }
 
 async function getCalls(userId, fromTime, today) {
@@ -501,19 +501,19 @@ async function collectOne(userId, fromTime, today, confirmedIds, realizedIds) {
 // ── Состояние (localStorage) ──────────────────────────────────────────────────
 function loadState(today) {
   try {
-    const s = JSON.parse(localStorage.getItem('bx_dash_state_v2') || 'null');
+    const s = JSON.parse(localStorage.getItem('bx_dash_state_v3') || 'null');
     return s?.date === today ? s : null;
   } catch { return null; }
 }
 function saveState(today, lastCheck, metrics) {
-  localStorage.setItem('bx_dash_state_v2', JSON.stringify({ date: today, lastCheck, metrics }));
+  localStorage.setItem('bx_dash_state_v3', JSON.stringify({ date: today, lastCheck, metrics }));
 }
 function loadYesterdayCache(yd) {
-  try { return JSON.parse(localStorage.getItem(`bx_dash_yd3_${yd}`) || 'null'); }
+  try { return JSON.parse(localStorage.getItem(`bx_dash_yd4_${yd}`) || 'null'); }
   catch { return null; }
 }
 function saveYesterdayCache(yd, data) {
-  localStorage.setItem(`bx_dash_yd3_${yd}`, JSON.stringify(data));
+  localStorage.setItem(`bx_dash_yd4_${yd}`, JSON.stringify(data));
 }
 
 // ── UI ────────────────────────────────────────────────────────────────────────
@@ -675,11 +675,11 @@ let customDayLoading = false;
 let _lastRenderArgs = null;
 
 function loadCustomDayCache(d) {
-  try { return JSON.parse(localStorage.getItem(`bx_dash_cd3_${d}`) || 'null'); }
+  try { return JSON.parse(localStorage.getItem(`bx_dash_cd4_${d}`) || 'null'); }
   catch { return null; }
 }
 function saveCustomDayCache(d, data) {
-  localStorage.setItem(`bx_dash_cd3_${d}`, JSON.stringify(data));
+  localStorage.setItem(`bx_dash_cd4_${d}`, JSON.stringify(data));
 }
 
 function updateDayButtons() {
