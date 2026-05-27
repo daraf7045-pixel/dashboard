@@ -374,8 +374,10 @@ async function getNewDeals(userId, fromTime, today) {
 }
 
 async function getTasks(userId, fromTime, today) {
+  const tomorrow = tomorrowOf(today);
+  const toTime   = `${tomorrow}T00:00:00+03:00`;
   const changed = await paginateAll('tasks.task.list', {
-    filter: { RESPONSIBLE_ID: userId, '>=CHANGED_DATE': today },
+    filter: { RESPONSIBLE_ID: userId, '>=CHANGED_DATE': today, '<CHANGED_DATE': tomorrow },
     select: ['ID'],
   });
   let count = 0;
@@ -386,6 +388,7 @@ async function getTasks(userId, fromTime, today) {
     const task = resp?.result?.task || {};
     if (task.status === '5'
         && (task.closedDate||'') >= fromTime
+        && (task.closedDate||'') <  toTime
         && String(task.closedBy||'') === String(userId)
         && !(task.title||'').startsWith('CRM:')) {
       count++;
@@ -506,11 +509,11 @@ function saveState(today, lastCheck, metrics) {
   localStorage.setItem('bx_dash_state_v2', JSON.stringify({ date: today, lastCheck, metrics }));
 }
 function loadYesterdayCache(yd) {
-  try { return JSON.parse(localStorage.getItem(`bx_dash_yd2_${yd}`) || 'null'); }
+  try { return JSON.parse(localStorage.getItem(`bx_dash_yd3_${yd}`) || 'null'); }
   catch { return null; }
 }
 function saveYesterdayCache(yd, data) {
-  localStorage.setItem(`bx_dash_yd2_${yd}`, JSON.stringify(data));
+  localStorage.setItem(`bx_dash_yd3_${yd}`, JSON.stringify(data));
 }
 
 // ── UI ────────────────────────────────────────────────────────────────────────
@@ -672,11 +675,11 @@ let customDayLoading = false;
 let _lastRenderArgs = null;
 
 function loadCustomDayCache(d) {
-  try { return JSON.parse(localStorage.getItem(`bx_dash_cd2_${d}`) || 'null'); }
+  try { return JSON.parse(localStorage.getItem(`bx_dash_cd3_${d}`) || 'null'); }
   catch { return null; }
 }
 function saveCustomDayCache(d, data) {
-  localStorage.setItem(`bx_dash_cd2_${d}`, JSON.stringify(data));
+  localStorage.setItem(`bx_dash_cd3_${d}`, JSON.stringify(data));
 }
 
 function updateDayButtons() {
