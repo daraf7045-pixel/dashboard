@@ -384,8 +384,7 @@ async function getTasks(userId, fromTime, today) {
     if (task.status === '5'
         && (task.closedDate||'') >= fromTime
         && (task.closedDate||'') <  toTime
-        && String(task.closedBy||'') === String(userId)
-        && !(task.title||'').startsWith('CRM:')) {
+        && String(task.closedBy||'') === String(userId)) {
       count++;
     }
   }
@@ -540,19 +539,19 @@ async function collectOne(userId, fromTime, today, confirmedIds, realizedIds) {
 // ── Состояние (localStorage) ──────────────────────────────────────────────────
 function loadState(today) {
   try {
-    const s = JSON.parse(localStorage.getItem('bx_dash_state_v7') || 'null');
+    const s = JSON.parse(localStorage.getItem('bx_dash_state_v8') || 'null');
     return s?.date === today ? s : null;
   } catch { return null; }
 }
 function saveState(today, lastCheck, metrics) {
-  localStorage.setItem('bx_dash_state_v7', JSON.stringify({ date: today, lastCheck, metrics }));
+  localStorage.setItem('bx_dash_state_v8', JSON.stringify({ date: today, lastCheck, metrics }));
 }
 function loadYesterdayCache(yd) {
-  try { return JSON.parse(localStorage.getItem(`bx_dash_yd9_${yd}`) || 'null'); }
+  try { return JSON.parse(localStorage.getItem(`bx_dash_yd10_${yd}`) || 'null'); }
   catch { return null; }
 }
 function saveYesterdayCache(yd, data) {
-  localStorage.setItem(`bx_dash_yd9_${yd}`, JSON.stringify(data));
+  localStorage.setItem(`bx_dash_yd10_${yd}`, JSON.stringify(data));
 }
 
 // ── UI ────────────────────────────────────────────────────────────────────────
