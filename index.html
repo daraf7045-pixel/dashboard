@@ -405,15 +405,16 @@ function netOpportunity(d) {
 // ── Дневные суммы (прошлые / произвольные даты) — через MOVED_TIME ──────────
 // Надёжнее, чем stagehistory: тот же подход, что и в месячных расчётах
 async function getDailyRealized(userId, dateStr) {
-  // Фильтруем по CLOSEDATE (дата мероприятия), а не по дате перехода в стадию
+  // Фильтруем по полю «Дата мероприятия» (UF_CRM_1594025532470)
+  // Доставки (без заполненной даты мероприятия) в WON не считаются
   const tomorrow = tomorrowOf(dateStr);
   const deals = await paginateAll('crm.deal.list', {
     filter: {
       ASSIGNED_BY_ID: userId,
       CATEGORY_ID,
       STAGE_ID: REALIZED,
-      '>=CLOSEDATE': dateStr,
-      '<CLOSEDATE':  tomorrow,
+      '>=UF_CRM_1594025532470': dateStr,
+      '<UF_CRM_1594025532470':  tomorrow,
     },
     select: ['ID', 'OPPORTUNITY', ...COMMISSION_FIELDS],
   });
@@ -549,19 +550,19 @@ async function collectOne(userId, fromTime, today, confirmedIds, realizedIds) {
 // ── Состояние (localStorage) ──────────────────────────────────────────────────
 function loadState(today) {
   try {
-    const s = JSON.parse(localStorage.getItem('bx_dash_state_v5') || 'null');
+    const s = JSON.parse(localStorage.getItem('bx_dash_state_v6') || 'null');
     return s?.date === today ? s : null;
   } catch { return null; }
 }
 function saveState(today, lastCheck, metrics) {
-  localStorage.setItem('bx_dash_state_v5', JSON.stringify({ date: today, lastCheck, metrics }));
+  localStorage.setItem('bx_dash_state_v6', JSON.stringify({ date: today, lastCheck, metrics }));
 }
 function loadYesterdayCache(yd) {
-  try { return JSON.parse(localStorage.getItem(`bx_dash_yd7_${yd}`) || 'null'); }
+  try { return JSON.parse(localStorage.getItem(`bx_dash_yd8_${yd}`) || 'null'); }
   catch { return null; }
 }
 function saveYesterdayCache(yd, data) {
-  localStorage.setItem(`bx_dash_yd7_${yd}`, JSON.stringify(data));
+  localStorage.setItem(`bx_dash_yd8_${yd}`, JSON.stringify(data));
 }
 
 // ── UI ────────────────────────────────────────────────────────────────────────
