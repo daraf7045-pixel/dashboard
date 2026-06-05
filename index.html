@@ -424,23 +424,13 @@ async function getDailyRealized(userId, dateStr) {
 async function getDailyConfirmed(userId, dateStr) {
   const fromTime = `${dateStr}T00:00:00+03:00`;
   const toTime   = `${tomorrowOf(dateStr)}T00:00:00+03:00`;
-  // Текущие CONFIRMED, вошедшие в стадию в этот день
+  // Только сделки, вошедшие в CONFIRMED в этот день (по MOVED_TIME)
   const inConf = await paginateAll('crm.deal.list', {
     filter: { ASSIGNED_BY_ID: userId, CATEGORY_ID, STAGE_ID: CONFIRMED, '>=DATE_MODIFY': fromTime },
     select: ['ID', 'OPPORTUNITY', 'MOVED_TIME', ...COMMISSION_FIELDS],
   });
-  // + те, что в тот же день ушли дальше в WON из CONFIRMED
-  const toWon = await paginateAll('crm.deal.list', {
-    filter: { ASSIGNED_BY_ID: userId, CATEGORY_ID, STAGE_ID: REALIZED, '>=DATE_MODIFY': fromTime },
-    select: ['ID', 'OPPORTUNITY', 'PREVIOUS_STAGE_ID', 'MOVED_TIME', ...COMMISSION_FIELDS],
-  });
-  const wonFromConf = toWon.filter(d =>
-    d.PREVIOUS_STAGE_ID === CONFIRMED &&
-    (d.MOVED_TIME||'') >= fromTime && (d.MOVED_TIME||'') < toTime
-  );
-  const seen = new Set();
-  return [...inConf.filter(d => (d.MOVED_TIME||'') >= fromTime && (d.MOVED_TIME||'') < toTime), ...wonFromConf]
-    .filter(d => { if (seen.has(d.ID)) return false; seen.add(d.ID); return true; })
+  return inConf
+    .filter(d => (d.MOVED_TIME||'') >= fromTime && (d.MOVED_TIME||'') < toTime)
     .reduce((s, d) => s + netOpportunity(d), 0);
 }
 
@@ -550,19 +540,19 @@ async function collectOne(userId, fromTime, today, confirmedIds, realizedIds) {
 // ── Состояние (localStorage) ──────────────────────────────────────────────────
 function loadState(today) {
   try {
-    const s = JSON.parse(localStorage.getItem('bx_dash_state_v6') || 'null');
+    const s = JSON.parse(localStorage.getItem('bx_dash_state_v7') || 'null');
     return s?.date === today ? s : null;
   } catch { return null; }
 }
 function saveState(today, lastCheck, metrics) {
-  localStorage.setItem('bx_dash_state_v6', JSON.stringify({ date: today, lastCheck, metrics }));
+  localStorage.setItem('bx_dash_state_v7', JSON.stringify({ date: today, lastCheck, metrics }));
 }
 function loadYesterdayCache(yd) {
-  try { return JSON.parse(localStorage.getItem(`bx_dash_yd8_${yd}`) || 'null'); }
+  try { return JSON.parse(localStorage.getItem(`bx_dash_yd9_${yd}`) || 'null'); }
   catch { return null; }
 }
 function saveYesterdayCache(yd, data) {
-  localStorage.setItem(`bx_dash_yd8_${yd}`, JSON.stringify(data));
+  localStorage.setItem(`bx_dash_yd9_${yd}`, JSON.stringify(data));
 }
 
 // ── UI ────────────────────────────────────────────────────────────────────────
