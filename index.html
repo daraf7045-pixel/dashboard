@@ -557,11 +557,11 @@ function saveState(today, lastCheck, metrics) {
   localStorage.setItem('bx_dash_state_v5', JSON.stringify({ date: today, lastCheck, metrics }));
 }
 function loadYesterdayCache(yd) {
-  try { return JSON.parse(localStorage.getItem(`bx_dash_yd6_${yd}`) || 'null'); }
+  try { return JSON.parse(localStorage.getItem(`bx_dash_yd7_${yd}`) || 'null'); }
   catch { return null; }
 }
 function saveYesterdayCache(yd, data) {
-  localStorage.setItem(`bx_dash_yd6_${yd}`, JSON.stringify(data));
+  localStorage.setItem(`bx_dash_yd7_${yd}`, JSON.stringify(data));
 }
 
 // ── UI ────────────────────────────────────────────────────────────────────────
