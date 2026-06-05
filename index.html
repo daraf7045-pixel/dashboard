@@ -445,13 +445,18 @@ async function collectDayMetrics(userId, dateStr) {
   return { calls, newDeals, confirmedSum, realizedSum, tasks };
 }
 
-// Текущий месяц: сделки в CONFIRMED + перешедшие из CONFIRMED в WON в этом месяце
+// Текущий месяц: CONFIRMED с датой мероприятия в этом месяце + WON из CONFIRMED в этом месяце
 async function getMonthlyRealized(userId, monthStart) {
   if (!monthStart) monthStart = monthStartMSK();
+  const monthEnd = nextMonthStartMSK();
   const extraFields = [...COMMISSION_FIELDS];
   const [inConfirmed, wonThisMonth] = await Promise.all([
     paginateAll('crm.deal.list', {
-      filter: { ASSIGNED_BY_ID: userId, CATEGORY_ID, STAGE_ID: CONFIRMED },
+      filter: {
+        ASSIGNED_BY_ID: userId, CATEGORY_ID, STAGE_ID: CONFIRMED,
+        '>=UF_CRM_1594025532470': monthStart,   // дата мероприятия в текущем месяце
+        '<UF_CRM_1594025532470':  monthEnd,
+      },
       select: ['ID', 'OPPORTUNITY', ...extraFields],
     }),
     paginateAll('crm.deal.list', {
@@ -491,7 +496,7 @@ async function getPrevMonthRealized(userId, prevStart, prevEnd) {
     .reduce((s, d) => s + netOpportunity(d), 0);
 }
 
-// Следующий месяц: CONFIRMED с CLOSEDATE в следующем месяце + WON из CONFIRMED в следующем месяце
+// Следующий месяц: CONFIRMED с датой мероприятия в следующем месяце + WON из CONFIRMED в следующем месяце
 async function getNextMonthRealized(userId, nextStart) {
   const nextEnd = nextMonthEndMSK();
   const extraFields = [...COMMISSION_FIELDS];
@@ -501,10 +506,10 @@ async function getNextMonthRealized(userId, nextStart) {
         ASSIGNED_BY_ID: userId,
         CATEGORY_ID,
         STAGE_ID: CONFIRMED,
-        '>=CLOSEDATE': nextStart,
-        '<CLOSEDATE':  nextEnd,
+        '>=UF_CRM_1594025532470': nextStart,   // дата мероприятия в следующем месяце
+        '<UF_CRM_1594025532470':  nextEnd,
       },
-      select: ['ID', 'OPPORTUNITY', 'CLOSEDATE', ...extraFields],
+      select: ['ID', 'OPPORTUNITY', ...extraFields],
     }),
     paginateAll('crm.deal.list', {
       filter: {
@@ -539,12 +544,12 @@ async function collectOne(userId, fromTime, today, confirmedIds, realizedIds) {
 // ── Состояние (localStorage) ──────────────────────────────────────────────────
 function loadState(today) {
   try {
-    const s = JSON.parse(localStorage.getItem('bx_dash_state_v8') || 'null');
+    const s = JSON.parse(localStorage.getItem('bx_dash_state_v9') || 'null');
     return s?.date === today ? s : null;
   } catch { return null; }
 }
 function saveState(today, lastCheck, metrics) {
-  localStorage.setItem('bx_dash_state_v8', JSON.stringify({ date: today, lastCheck, metrics }));
+  localStorage.setItem('bx_dash_state_v9', JSON.stringify({ date: today, lastCheck, metrics }));
 }
 function loadYesterdayCache(yd) {
   try { return JSON.parse(localStorage.getItem(`bx_dash_yd10_${yd}`) || 'null'); }
