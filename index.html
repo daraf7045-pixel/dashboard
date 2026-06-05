@@ -692,7 +692,7 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
       ${row('План', fmtMoney(mPlan), 'money')}
       ${row('Выручка', fmtMoney(mReal), 'money')}
       ${row('Остаток плана', remVal, remCls)}
-      <div class="card-section-lbl">${isCustom ? `За ${customDate}` : isYesterday ? 'За вчера' : 'За сегодня'}</div>
+      <div class="card-section-lbl">${isYesterday ? 'За вчера' : 'За сегодня'}</div>
       ${(dd => [
         row('Звонки &gt;40с', fmtNum(dd.calls), c(dd.calls)),
         row('Новые сделки', fmtNum(dd.newDeals), c(dd.newDeals)),
