@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Активность менеджеров</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#1e293b;font-size:14px;line-height:1.5}
+.wrap{max-width:900px;margin:0 auto;padding:20px 16px}
+header{background:#fff;border-radius:12px;padding:20px 24px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.08);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+header h1{font-size:18px;font-weight:700;color:#0f172a}
+.meta{color:#64748b;font-size:12px;margin-top:3px}
+.btn-month{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s;border:2px solid #2563eb;background:#fff;color:#2563eb}
+.btn-month.active{background:#2563eb;color:#fff}
+.section-title{font-size:15px;font-weight:700;color:#0f172a;margin:20px 0 10px;padding-left:10px;border-left:4px solid #2563eb}
+.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.kpi-day{grid-template-columns:repeat(5,1fr)}
+.kpi-card{background:#fff;border-radius:10px;padding:16px 18px;box-shadow:0 1px 4px rgba(0,0,0,.08);text-align:center}
+.kpi-card .lbl{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+.kpi-card .val{font-size:20px;font-weight:700}
+.blue{color:#2563eb}.green{color:#16a34a}.orange{color:#d97706}.red{color:#ef4444}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:16px}
+thead tr{background:#f8fafc}
+th{padding:10px 14px;text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid #f1f5f9}
+tr:last-child td{border-bottom:none}
+.mname{font-weight:600}
+.money{color:#16a34a;font-weight:600;white-space:nowrap}
+.tabpanel{display:none}
+.tabpanel.active{display:block}
+.reason-bar{display:flex;align-items:center;gap:10px;padding:6px 0}
+.reason-bar .lbl{width:170px;font-size:13px;color:#334155;flex-shrink:0}
+.reason-bar .bar{background:#dbeafe;border-radius:4px;height:18px;position:relative;flex:1}
+.reason-bar .fill{background:#2563eb;border-radius:4px;height:100%}
+.reason-bar .cnt{width:28px;text-align:right;font-weight:600;font-size:13px;flex-shrink:0}
+.stale-note{font-size:12px;color:#94a3b8;margin:-6px 0 10px}
+footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
+@media (max-width:640px){.wrap{padding:12px}.kpi{grid-template-columns:repeat(2,1fr)}.reason-bar .lbl{width:110px;font-size:12px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<div>
+<h1>Активность менеджеров</h1>
+<div class="meta">Обновлено: __GENERATED_AT__ МСК</div>
+</div>
+</header>
+
+<div class="section-title">📅 Результаты за месяц</div>
+<div style="display:flex;gap:6px;margin-bottom:10px">
+<button class="btn-month" data-tab="month" data-key="prev" onclick="showTab('month','prev')">Прошлый</button>
+<button class="btn-month active" data-tab="month" data-key="current" onclick="showTab('month','current')">Текущий</button>
+<button class="btn-month" data-tab="month" data-key="next" onclick="showTab('month','next')">Следующий</button>
+</div>
+<div id="month-current" class="tabpanel active">
+<table><thead><tr><th>Менеджер</th><th>План</th><th>Выручка</th><th>Остаток</th></tr></thead><tbody id="month-current-body"></tbody></table>
+</div>
+<div id="month-prev" class="tabpanel">
+<table><thead><tr><th>Менеджер</th><th>План</th><th>Выручка</th><th>Остаток</th></tr></thead><tbody id="month-prev-body"></tbody></table>
+</div>
+<div id="month-next" class="tabpanel">
+<table><thead><tr><th>Менеджер</th><th>План</th><th>Выручка</th><th>Остаток</th></tr></thead><tbody id="month-next-body"></tbody></table>
+</div>
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px">
+<div class="section-title" style="margin:0">📊 Отчёт за день</div>
+<div style="display:flex;gap:6px">
+<button class="btn-month" data-tab="day" data-key="yesterday" onclick="showTab('day','yesterday')">Вчера</button>
+<button class="btn-month active" data-tab="day" data-key="today" onclick="showTab('day','today')">Сегодня</button>
+</div>
+</div>
+<div id="day-today" class="tabpanel active">
+<table><thead><tr><th>Менеджер</th><th>Звонки&nbsp;&gt;40с</th><th>Новые&nbsp;сделки</th><th>Подписано</th><th>Реализовано</th><th>Задачи</th></tr></thead><tbody id="day-today-body"></tbody></table>
+</div>
+<div id="day-yesterday" class="tabpanel">
+<table><thead><tr><th>Менеджер</th><th>Звонки&nbsp;&gt;40с</th><th>Новые&nbsp;сделки</th><th>Подписано</th><th>Реализовано</th><th>Задачи</th></tr></thead><tbody id="day-yesterday-body"></tbody></table>
+</div>
+
+<div class="section-title">❌ Отказы за неделю — группа Дарьи</div>
+<div id="rejections-box"></div>
+
+<div class="section-title">🧊 Зависшие контакты — группа Дарьи</div>
+<div class="stale-note" id="stale-note"></div>
+<table><thead><tr><th>Компания</th><th>Менеджер</th><th>Дней без действий</th></tr></thead><tbody id="stale-body"></tbody></table>
+
+<footer>Дашборд обновляется автоматически. Данные считаются на сервере — вебхук нигде не виден в коде страницы.</footer>
+</div>
+
+<script>
+const DATA = __DATA_JSON__;
+
+function fmtMoney(n){ if(!n) return '—'; return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
+function fmtNum(n){ return n ? String(n) : '—'; }
+
+function showTab(group, key){
+document.querySelectorAll(`.btn-month[data-tab="${group}"]`).forEach(b=>b.classList.toggle('active', b.dataset.key===key));
+document.querySelectorAll(`[id^="${group}-"]`).forEach(el=>el.classList.remove('active'));
+document.getElementById(`${group}-${key}`).classList.add('active');
+}
+
+// Месячные таблицы уже отрендерены на сервере (строки в DATA.months.*.rows)
+for (const key of ['current','prev','next']) {
+document.getElementById(`month-${key}-body`).innerHTML = DATA.months[key].rows;
+}
+for (const key of ['today','yesterday']) {
+document.getElementById(`day-${key}-body`).innerHTML = DATA.days[key].rows;
+}
+
+// Отказы
+const rj = DATA.rejections;
+const maxCount = Math.max(1, ...rj.by_reason.map(r=>r[1]));
+let rjHtml = `<div style="background:#fff;border-radius:10px;padding:16px 18px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:16px">`;
+rjHtml += `<div style="font-weight:700;margin-bottom:10px">Всего отказов: ${rj.total}</div>`;
+for (const [reason, count] of rj.by_reason) {
+const pct = Math.round(count / maxCount * 100);
+rjHtml += `<div class="reason-bar"><div class="lbl">${reason}</div><div class="bar"><div class="fill" style="width:${pct}%"></div></div><div class="cnt">${count}</div></div>`;
+}
+if (!rj.reason_field_found) {
+rjHtml += `<div class="stale-note" style="margin-top:8px">⚠ Поле "причина отказа" не найдено автоматически — показано общее число без разбивки. Нужна калибровка.</div>`;
+}
+rjHtml += `</div>`;
+document.getElementById('rejections-box').innerHTML = rjHtml;
+
+// Зависшие контакты
+document.getElementById('stale-note').textContent = `Компании без единого действия ${DATA.staleDays}+ дней`;
+document.getElementById('stale-body').innerHTML = DATA.staleContacts.length
+? DATA.staleContacts.map(c => `<tr><td class="mname">${c.name}</td><td>${c.manager}</td><td>${c.days}</td></tr>`).join('')
+: '<tr><td colspan="3" style="color:#94a3b8;text-align:center">Зависших контактов нет 🎉</td></tr>';
+</script>
+</body>
+</html>
