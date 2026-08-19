@@ -259,16 +259,20 @@ def current_plan(user_id: str, month_num: int) -> float:
 # НОВОЕ: недельные отказы по причинам (только группа Дарьи)
 # --------------------------------------------------------------------------
 
+REASON_FIELD = "UF_CRM_1594026846653"  # «Причина отказа DC» — найдено через formLabel
+# (у кастомных полей Bitrix title == код поля, не название; реальное название лежит в formLabel/listLabel)
+
+
 def find_reason_field(webhook: str):
-    """Ищет кастомное поле «причина отказа» по названию. Возвращает (код, {id_значения: текст})."""
+    """Возвращает (код, {id_значения: текст}) для поля «Причина отказа DC».
+    Значения списка читаем заново при каждом запуске — новая причина в Битриксе подхватится сама."""
     fields = bx_call(webhook, "crm.deal.fields", {})["result"]
-    for code, meta in fields.items():
-        title = (meta.get("title") or "").lower()
-        if "причин" in title and code.startswith("UF_"):
-            items = meta.get("items") or []
-            labels = {str(it.get("ID")): it.get("VALUE") for it in items} if items else {}
-            return code, labels
-    return None, {}
+    meta = fields.get(REASON_FIELD)
+    if not meta:
+        return None, {}
+    items = meta.get("items") or []
+    labels = {str(it.get("ID")): it.get("VALUE") for it in items}
+    return REASON_FIELD, labels
 
 
 def get_weekly_rejections(webhook: str, week_start: str):
