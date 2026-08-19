@@ -94,9 +94,23 @@ def bx_paginate(webhook: str, method: str, params: dict) -> list:
     return items
 
 
+def parse_money(value) -> float:
+    """Bitrix отдаёт денежные поля то как '10233.9', то как '10233.9|RUB'
+    (с кодом валюты через |). Берём только числовую часть перед |."""
+    if value is None or value == "":
+        return 0.0
+    s = str(value).split("|")[0].strip()
+    if not s:
+        return 0.0
+    try:
+        return float(s)
+    except ValueError:
+        return 0.0
+
+
 def net_opportunity(deal: dict) -> float:
-    opp = float(deal.get("OPPORTUNITY") or 0)
-    comm = sum(float(deal.get(f) or 0) for f in COMMISSION_FIELDS)
+    opp = parse_money(deal.get("OPPORTUNITY"))
+    comm = sum(parse_money(deal.get(f)) for f in COMMISSION_FIELDS)
     return opp - comm
 
 
