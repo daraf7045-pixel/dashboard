@@ -1,0 +1,36 @@
+name: Preparty Dashboard
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # каждый час
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install requests
+
+      - name: Generate dashboard
+        env:
+          BITRIX_WEBHOOK: ${{ secrets.BITRIX_WEBHOOK }}
+        run: python3 generate_dashboard.py --output index.html
+
+      - name: Commit and push
+        run: |
+          if [ -n "$(git status --porcelain index.html)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add index.html
+            git commit -m "update dashboard data"
+            git push
+          fi
