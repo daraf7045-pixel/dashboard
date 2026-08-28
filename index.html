@@ -713,7 +713,7 @@ async function loadAnalytics() {
     const cutoffDate = new Date(now); cutoffDate.setDate(cutoffDate.getDate() - STALE_DAYS - 1);
     const cutoffStr = `${cutoffDate.getFullYear()}-${pad(cutoffDate.getMonth()+1)}-${pad(cutoffDate.getDate())}T00:00:00`;
     const activities = await paginateAll('crm.activity.list', {
-      filter: { OWNER_TYPE_ID: 4, '>=CREATED': cutoffStr },
+      filter: { OWNER_TYPE_ID: 4, RESPONSIBLE_ID: DARYA_GROUP_IDS, '>=CREATED': cutoffStr },
       select: ['OWNER_ID', 'CREATED'],
       order: { CREATED: 'DESC' },
     });
