@@ -1,9 +1,7 @@
 name: Preparty Dashboard
 
 on:
-  schedule:
-    - cron: '0 * * * *'   # каждый час
-  workflow_dispatch: {}
+  workflow_dispatch: {}   # только ручной запуск
 
 permissions:
   contents: write
