@@ -618,8 +618,10 @@ function showPage(name) {
 }
 
 // ── Аналитика: отказы и зависшие контакты ───────────────────────────────────
-const DARYA_GROUP_IDS = ['12752', '9174', '14262']; // Кирасирова, Воронежцева, Айсина
+const DARYA_GROUP_IDS   = ['12752', '9174', '14262']; // нынешние: Кирасирова, Воронежцева, Айсина
 const DARYA_GROUP_NAMES = { '12752': 'Кирасирова Анна', '9174': 'Воронежцева Алина', '14262': 'Айсина Динара' };
+const FORMER_MGR_IDS    = ['10132', '1640', '7164'];  // бывшие: Тихонов, Гозюмова, Парфенова
+const ALL_GROUP_IDS     = [...DARYA_GROUP_IDS, ...FORMER_MGR_IDS];
 const REASON_FIELD = 'UF_CRM_1689760945480';
 const STALE_DAYS = 45;
 let analyticsLoaded = false;
@@ -635,21 +637,30 @@ async function loadAnalytics() {
   analyticsLoaded = true;
   const weekAgo = (() => { const d = mskNow(); d.setDate(d.getDate()-7); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; })();
 
-  // Отказы
+  // ── Отказы ──────────────────────────────────────────────────────────────────
   try {
     const [labels, deals] = await Promise.all([
       getReasonLabels(),
       paginateAll('crm.deal.list', {
         filter: { CATEGORY_ID, ASSIGNED_BY_ID: DARYA_GROUP_IDS, STAGE_SEMANTIC_ID: 'F', '>=DATE_MODIFY': weekAgo },
-        select: ['ID', 'ASSIGNED_BY_ID', REASON_FIELD],
+        select: ['ID', 'ASSIGNED_BY_ID', REASON_FIELD, 'COMMENTS'],
       }),
     ]);
+
+    // Находим ID значения «Другое» в списке
+    const drugoeId = Object.entries(labels).find(([,v]) => v === 'Другое')?.[0];
+
     const byReason = {};
+    const drugoeComments = [];
     for (const d of deals) {
       const raw = d[REASON_FIELD];
       const reason = (raw && labels[String(raw)]) || raw || 'Не указано';
       byReason[reason] = (byReason[reason] || 0) + 1;
+      if (drugoeId && String(raw) === drugoeId && d.COMMENTS) {
+        drugoeComments.push(d.COMMENTS.trim());
+      }
     }
+
     const sorted = Object.entries(byReason).sort((a,b) => b[1]-a[1]);
     const maxCnt = Math.max(1, ...sorted.map(r=>r[1]));
     let html = `<div style="background:#fff;border-radius:10px;padding:16px 18px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:16px">`;
@@ -657,6 +668,13 @@ async function loadAnalytics() {
     for (const [reason, cnt] of sorted) {
       const pct = Math.round(cnt/maxCnt*100);
       html += `<div class="reason-bar"><div class="rlbl">${reason}</div><div class="rbar"><div class="rfill" style="width:${pct}%"></div></div><div class="rcnt">${cnt}</div></div>`;
+      if (reason === 'Другое' && drugoeComments.length) {
+        html += `<div style="margin:4px 0 8px 180px;display:flex;flex-direction:column;gap:4px">`;
+        for (const c of drugoeComments) {
+          html += `<div style="font-size:12px;color:#475569;background:#f8fafc;border-left:3px solid #94a3b8;padding:4px 8px;border-radius:0 4px 4px 0">${c}</div>`;
+        }
+        html += `</div>`;
+      }
     }
     html += `</div>`;
     document.getElementById('rejectionsBox').innerHTML = html;
@@ -664,12 +682,25 @@ async function loadAnalytics() {
     document.getElementById('rejectionsBox').innerHTML = `<div class="err">Ошибка загрузки отказов: ${e.message}</div>`;
   }
 
-  // Зависшие контакты
+  // ── Зависшие контакты ────────────────────────────────────────────────────────
   try {
+    // Находим компании с историей сделок у нынешних ИЛИ бывших менеджеров группы
+    const pastDeals = await paginateAll('crm.deal.list', {
+      filter: { CATEGORY_ID, ASSIGNED_BY_ID: ALL_GROUP_IDS },
+      select: ['ID', 'COMPANY_ID'],
+    });
+    const companyIdsWithHistory = new Set(pastDeals.map(d => String(d.COMPANY_ID)).filter(Boolean));
+
+    // Берём компании, сейчас закреплённые за нынешними менеджерами
     const companies = await paginateAll('crm.company.list', {
       filter: { ASSIGNED_BY_ID: DARYA_GROUP_IDS },
       select: ['ID', 'TITLE', 'ASSIGNED_BY_ID', 'DATE_MODIFY'],
     });
+
+    // Оставляем только те, у которых есть история сделок
+    const relevant = companies.filter(c => companyIdsWithHistory.has(String(c.ID)));
+
+    // Последняя активность
     const activities = await paginateAll('crm.activity.list', {
       filter: { OWNER_TYPE_ID: 4, RESPONSIBLE_ID: DARYA_GROUP_IDS },
       select: ['OWNER_ID', 'CREATED'],
@@ -680,9 +711,10 @@ async function loadAnalytics() {
       const oid = String(a.OWNER_ID);
       if (!lastActivity[oid]) lastActivity[oid] = a.CREATED;
     }
+
     const now = mskNow();
     const stale = [];
-    for (const c of companies) {
+    for (const c of relevant) {
       const last = lastActivity[String(c.ID)] || c.DATE_MODIFY;
       if (!last) continue;
       const days = Math.floor((now - new Date(last)) / 86400000);
@@ -691,7 +723,7 @@ async function loadAnalytics() {
       }
     }
     stale.sort((a,b) => b.days - a.days);
-    document.getElementById('staleNote').textContent = `Компании без единого действия ${STALE_DAYS}+ дней`;
+    document.getElementById('staleNote').textContent = `Компании без единого действия ${STALE_DAYS}+ дней (только те, где были сделки)`;
     document.getElementById('staleBody').innerHTML = stale.length
       ? stale.map(c => `<tr><td class="mname">${c.name}</td><td>${c.manager}</td><td>${c.days}</td></tr>`).join('')
       : '<tr><td colspan="3" class="zero" style="text-align:center">Зависших контактов нет 🎉</td></tr>';
