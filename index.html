@@ -710,8 +710,8 @@ async function loadAnalytics() {
     // Все активности (звонки, письма, комментарии) по компаниям за последние 180 дней
     // Без фильтра по ответственному — ловим любой контакт с компанией
     const now = mskNow();
-    const cutoff180 = new Date(now); cutoff180.setDate(cutoff180.getDate() - 180);
-    const cutoffStr = `${cutoff180.getFullYear()}-${pad(cutoff180.getMonth()+1)}-${pad(cutoff180.getDate())}T00:00:00`;
+    const cutoffDate = new Date(now); cutoffDate.setDate(cutoffDate.getDate() - STALE_DAYS - 1);
+    const cutoffStr = `${cutoffDate.getFullYear()}-${pad(cutoffDate.getMonth()+1)}-${pad(cutoffDate.getDate())}T00:00:00`;
     const activities = await paginateAll('crm.activity.list', {
       filter: { OWNER_TYPE_ID: 4, '>=CREATED': cutoffStr },
       select: ['OWNER_ID', 'CREATED'],
