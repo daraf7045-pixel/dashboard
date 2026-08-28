@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Зависшие компании — группа Дарьи</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#1e293b;font-size:14px;line-height:1.5}
+.wrap{max-width:960px;margin:0 auto;padding:20px 16px}
+header{background:#fff;border-radius:12px;padding:20px 24px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.08);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+header h1{font-size:18px;font-weight:700;color:#0f172a}
+.meta{color:#64748b;font-size:12px;margin-top:3px}
+.btn{padding:9px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:2px solid #2563eb;background:#2563eb;color:#fff;transition:all .15s}
+.btn:hover{background:#1d4ed8;border-color:#1d4ed8}
+.btn-outline{background:#fff;color:#2563eb}
+.btn-outline:hover{background:#eff6ff}
+.section-title{font-size:15px;font-weight:700;color:#0f172a;margin:0 0 12px;padding-left:10px;border-left:4px solid #2563eb}
+.stale-note{font-size:12px;color:#94a3b8;margin:-8px 0 12px}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+thead tr{background:#f8fafc}
+th{padding:10px 14px;text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid #f1f5f9}
+tr:last-child td{border-bottom:none}
+tr:hover{background:#f8fafc}
+.company-link{color:#2563eb;text-decoration:none;font-weight:600}
+.company-link:hover{text-decoration:underline}
+.days-badge{display:inline-block;padding:2px 10px;border-radius:20px;font-weight:700;font-size:13px}
+.days-red{background:#fee2e2;color:#dc2626}
+.days-orange{background:#ffedd5;color:#d97706}
+.days-yellow{background:#fef9c3;color:#92400e}
+.loader{text-align:center;padding:40px;color:#64748b;font-size:14px}
+.err{color:#ef4444;padding:20px;text-align:center}
+.green{color:#16a34a}
+.filter-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.filter-btn{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #cbd5e1;background:#fff;color:#64748b;transition:all .15s}
+.filter-btn.active{border-color:#2563eb;background:#eff6ff;color:#2563eb}
+.summary-bar{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.summary-card{background:#fff;border-radius:10px;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.08);flex:1;min-width:120px;text-align:center}
+.summary-card .lbl{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.summary-card .val{font-size:22px;font-weight:700;color:#0f172a}
+.back-link{font-size:13px;color:#2563eb;text-decoration:none;display:inline-flex;align-items:center;gap:4px}
+.back-link:hover{text-decoration:underline}
+@media(max-width:600px){.wrap{padding:12px}.summary-bar{gap:8px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div style="margin-bottom:6px"><a href="index.html" class="back-link">← Главный дашборд</a></div>
+      <h1>🧊 Зависшие компании</h1>
+      <div class="meta" id="metaLine">Загрузка...</div>
+    </div>
+    <button class="btn" onclick="loadData()">🔄 Обновить</button>
+  </header>
+
+  <div class="summary-bar" id="summaryBar" style="display:none">
+    <div class="summary-card"><div class="lbl">Всего</div><div class="val" id="sumTotal">—</div></div>
+    <div class="summary-card"><div class="lbl">Анна</div><div class="val" id="sumAnna">—</div></div>
+    <div class="summary-card"><div class="lbl">Алина</div><div class="val" id="sumAlina">—</div></div>
+    <div class="summary-card"><div class="lbl">Динара</div><div class="val" id="sumDinara">—</div></div>
+  </div>
+
+  <div class="section-title">Компании без касаний 45+ дней</div>
+  <div class="stale-note">Только компании с историей сделок у группы. Касание = звонок, комментарий, сделка (любая стадия)</div>
+
+  <div class="filter-row" id="filterRow" style="display:none">
+    <span style="font-size:12px;color:#64748b;margin-right:4px">Менеджер:</span>
+    <button class="filter-btn active" data-mgr="all" onclick="applyFilter(this)">Все</button>
+    <button class="filter-btn" data-mgr="12752" onclick="applyFilter(this)">Анна</button>
+    <button class="filter-btn" data-mgr="9174" onclick="applyFilter(this)">Алина</button>
+    <button class="filter-btn" data-mgr="14262" onclick="applyFilter(this)">Динара</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Компания</th>
+        <th>Менеджер</th>
+        <th>Дней без касания</th>
+        <th>Последнее касание</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody">
+      <tr><td colspan="5" class="loader">⏳ Загружаем данные из Битрикс24...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+const WH           = 'https://dcatering.bitrix24.ru/rest/160/ghlyw75jejp57sex';
+const CATEGORY_ID  = 4;
+const BX_DOMAIN    = 'dcatering.bitrix24.ru';
+const STALE_DAYS   = 45;
+const DARYA_GROUP_IDS   = ['12752', '9174', '14262'];
+const DARYA_GROUP_NAMES = { '12752': 'Кирасирова Анна', '9174': 'Воронежцева Алина', '14262': 'Айсина Динара' };
+const FORMER_MGR_IDS    = ['10132', '1640', '7164'];
+const ALL_GROUP_IDS     = [...DARYA_GROUP_IDS, ...FORMER_MGR_IDS];
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function mskNow() { return new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Moscow' })); }
+function pad(n) { return String(n).padStart(2,'0'); }
+function fmtDate(str) {
+  if (!str) return '—';
+  const d = new Date(str);
+  return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()}`;
+}
+
+function flatQS(obj, prefix='') {
+  const parts = [];
+  for (const [k, v] of Object.entries(obj)) {
+    const key = prefix ? `${prefix}[${k}]` : k;
+    if (v !== null && v !== undefined && typeof v === 'object' && !Array.isArray(v)) {
+      parts.push(flatQS(v, key));
+    } else if (Array.isArray(v)) {
+      v.forEach((item, i) => parts.push(`${encodeURIComponent(`${key}[${i}]`)}=${encodeURIComponent(item)}`));
+    } else if (v !== null && v !== undefined) {
+      parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(v)}`);
+    }
+  }
+  return parts.join('&');
+}
+
+async function bx(method, params={}, retries=6) {
+  const qs = flatQS(params);
+  const url = `${WH}/${method}.json${qs ? '?'+qs : ''}`;
+  let delay = 1000;
+  for (let i = 0; i < retries; i++) {
+    try {
+      const r = await fetch(url);
+      if (r.status === 429 || r.status === 503) { await sleep(delay); delay = Math.min(delay*2,30000); continue; }
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const d = await r.json();
+      if (d.error) throw new Error(`Bitrix: ${d.error}`);
+      return d;
+    } catch(e) {
+      if (i === retries-1) throw e;
+      await sleep(delay); delay = Math.min(delay*2,30000);
+    }
+  }
+}
+
+async function paginateAll(method, params={}) {
+  const items = []; let start = 0;
+  while (true) {
+    const resp = await bx(method, {...params, start});
+    let page = resp.result;
+    if (page && !Array.isArray(page)) page = page.tasks || page.items || [];
+    if (!page || page.length === 0) break;
+    items.push(...page);
+    if (resp.next == null) break;
+    start = resp.next;
+    await sleep(150);
+  }
+  return items;
+}
+
+let allStale = [];
+let activeFilter = 'all';
+
+function applyFilter(btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeFilter = btn.dataset.mgr;
+  renderTable();
+}
+
+function renderTable() {
+  const rows = activeFilter === 'all' ? allStale : allStale.filter(c => c.mgrId === activeFilter);
+  if (!rows.length) {
+    document.getElementById('tableBody').innerHTML =
+      `<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:30px">Зависших компаний нет 🎉</td></tr>`;
+    return;
+  }
+  document.getElementById('tableBody').innerHTML = rows.map((c, i) => {
+    const cls = c.days >= 90 ? 'days-red' : c.days >= 60 ? 'days-orange' : 'days-yellow';
+    return `<tr>
+      <td style="color:#94a3b8;font-size:12px">${i+1}</td>
+      <td><a class="company-link" href="https://${BX_DOMAIN}/crm/company/details/${c.id}/" target="_blank">${c.name}</a></td>
+      <td>${c.manager}</td>
+      <td><span class="days-badge ${cls}">${c.days} дн.</span></td>
+      <td style="color:#64748b;font-size:12px">${fmtDate(c.lastDate)}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadData() {
+  document.getElementById('tableBody').innerHTML =
+    '<tr><td colspan="5" class="loader">⏳ Загружаем данные из Битрикс24...</td></tr>';
+  document.getElementById('summaryBar').style.display = 'none';
+  document.getElementById('filterRow').style.display = 'none';
+  document.getElementById('metaLine').textContent = 'Загрузка...';
+
+  try {
+    // Сделки нынешних и бывших менеджеров — история + последнее касание
+    const pastDeals = await paginateAll('crm.deal.list', {
+      filter: { CATEGORY_ID, ASSIGNED_BY_ID: ALL_GROUP_IDS },
+      select: ['ID', 'COMPANY_ID', 'DATE_MODIFY'],
+    });
+    const companyIdsWithHistory = new Set(
+      pastDeals.map(d => String(d.COMPANY_ID)).filter(c => c && c !== 'null' && c !== '0')
+    );
+    const lastDealTouch = {};
+    for (const d of pastDeals) {
+      const cid = String(d.COMPANY_ID);
+      if (!cid || cid === 'null' || cid === '0') continue;
+      if (!lastDealTouch[cid] || d.DATE_MODIFY > lastDealTouch[cid]) lastDealTouch[cid] = d.DATE_MODIFY;
+    }
+
+    // Компании нынешних менеджеров
+    const companies = await paginateAll('crm.company.list', {
+      filter: { ASSIGNED_BY_ID: DARYA_GROUP_IDS },
+      select: ['ID', 'TITLE', 'ASSIGNED_BY_ID', 'DATE_MODIFY'],
+    });
+    const relevant = companies.filter(c => companyIdsWithHistory.has(String(c.ID)));
+
+    // Активности (звонки, письма, комментарии) — только менеджеров группы
+    const now = mskNow();
+    const cutoffDate = new Date(now); cutoffDate.setDate(cutoffDate.getDate() - STALE_DAYS - 1);
+    const cutoffStr = `${cutoffDate.getFullYear()}-${pad(cutoffDate.getMonth()+1)}-${pad(cutoffDate.getDate())}T00:00:00`;
+    const activities = await paginateAll('crm.activity.list', {
+      filter: { OWNER_TYPE_ID: 4, RESPONSIBLE_ID: DARYA_GROUP_IDS, '>=CREATED': cutoffStr },
+      select: ['OWNER_ID', 'CREATED'],
+      order: { CREATED: 'DESC' },
+    });
+    const lastActTouch = {};
+    for (const a of activities) {
+      const oid = String(a.OWNER_ID);
+      if (!lastActTouch[oid] || a.CREATED > lastActTouch[oid]) lastActTouch[oid] = a.CREATED;
+    }
+
+    allStale = [];
+    for (const c of relevant) {
+      const cid = String(c.ID);
+      const candidates = [lastActTouch[cid], lastDealTouch[cid], c.DATE_MODIFY].filter(Boolean);
+      if (!candidates.length) continue;
+      candidates.sort();
+      const lastDate = candidates[candidates.length - 1];
+      const days = Math.floor((now - new Date(lastDate)) / 86400000);
+      if (days >= STALE_DAYS) {
+        allStale.push({
+          id: c.ID,
+          name: c.TITLE || `Компания #${c.ID}`,
+          manager: DARYA_GROUP_NAMES[String(c.ASSIGNED_BY_ID)] || '?',
+          mgrId: String(c.ASSIGNED_BY_ID),
+          days,
+          lastDate,
+        });
+      }
+    }
+    allStale.sort((a, b) => b.days - a.days);
+
+    // Сводка
+    const counts = { '12752': 0, '9174': 0, '14262': 0 };
+    for (const c of allStale) { if (counts[c.mgrId] !== undefined) counts[c.mgrId]++; }
+    document.getElementById('sumTotal').textContent = allStale.length;
+    document.getElementById('sumAnna').textContent = counts['12752'];
+    document.getElementById('sumAlina').textContent = counts['9174'];
+    document.getElementById('sumDinara').textContent = counts['14262'];
+    document.getElementById('summaryBar').style.display = 'flex';
+    document.getElementById('filterRow').style.display = 'flex';
+
+    const d = mskNow();
+    document.getElementById('metaLine').textContent =
+      `Обновлено ${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} в ${pad(d.getHours())}:${pad(d.getMinutes())} МСК`;
+
+    renderTable();
+  } catch(e) {
+    document.getElementById('tableBody').innerHTML =
+      `<tr><td colspan="5" class="err">Ошибка загрузки: ${e.message}</td></tr>`;
+    document.getElementById('metaLine').textContent = 'Ошибка';
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>
