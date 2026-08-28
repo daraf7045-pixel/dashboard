@@ -684,48 +684,71 @@ async function loadAnalytics() {
 
   // ── Зависшие контакты ────────────────────────────────────────────────────────
   try {
-    // Находим компании с историей сделок у нынешних ИЛИ бывших менеджеров группы
+    const BX_DOMAIN = WH.match(/https:\/\/([^/]+)/)[1]; // dcatering.bitrix24.ru
+
+    // Сделки с историей — нынешние и бывшие менеджеры группы
     const pastDeals = await paginateAll('crm.deal.list', {
       filter: { CATEGORY_ID, ASSIGNED_BY_ID: ALL_GROUP_IDS },
-      select: ['ID', 'COMPANY_ID'],
+      select: ['ID', 'COMPANY_ID', 'DATE_MODIFY'],
     });
-    const companyIdsWithHistory = new Set(pastDeals.map(d => String(d.COMPANY_ID)).filter(Boolean));
+    const companyIdsWithHistory = new Set(pastDeals.map(d => String(d.COMPANY_ID)).filter(c => c && c !== 'null'));
+    // Последнее касание через сделку
+    const lastDealTouch = {};
+    for (const d of pastDeals) {
+      const cid = String(d.COMPANY_ID);
+      if (!cid || cid === 'null') continue;
+      if (!lastDealTouch[cid] || d.DATE_MODIFY > lastDealTouch[cid]) lastDealTouch[cid] = d.DATE_MODIFY;
+    }
 
-    // Берём компании, сейчас закреплённые за нынешними менеджерами
+    // Компании, сейчас закреплённые за нынешними менеджерами
     const companies = await paginateAll('crm.company.list', {
       filter: { ASSIGNED_BY_ID: DARYA_GROUP_IDS },
       select: ['ID', 'TITLE', 'ASSIGNED_BY_ID', 'DATE_MODIFY'],
     });
-
-    // Оставляем только те, у которых есть история сделок
     const relevant = companies.filter(c => companyIdsWithHistory.has(String(c.ID)));
 
-    // Последняя активность
+    // Все активности (звонки, письма, комментарии) по компаниям за последние 180 дней
+    // Без фильтра по ответственному — ловим любой контакт с компанией
+    const now = mskNow();
+    const cutoff180 = new Date(now); cutoff180.setDate(cutoff180.getDate() - 180);
+    const cutoffStr = `${cutoff180.getFullYear()}-${pad(cutoff180.getMonth()+1)}-${pad(cutoff180.getDate())}T00:00:00`;
     const activities = await paginateAll('crm.activity.list', {
-      filter: { OWNER_TYPE_ID: 4, RESPONSIBLE_ID: DARYA_GROUP_IDS },
+      filter: { OWNER_TYPE_ID: 4, '>=CREATED': cutoffStr },
       select: ['OWNER_ID', 'CREATED'],
       order: { CREATED: 'DESC' },
     });
-    const lastActivity = {};
+    const lastActTouch = {};
     for (const a of activities) {
       const oid = String(a.OWNER_ID);
-      if (!lastActivity[oid]) lastActivity[oid] = a.CREATED;
+      if (!lastActTouch[oid] || a.CREATED > lastActTouch[oid]) lastActTouch[oid] = a.CREATED;
     }
 
-    const now = mskNow();
     const stale = [];
     for (const c of relevant) {
-      const last = lastActivity[String(c.ID)] || c.DATE_MODIFY;
-      if (!last) continue;
+      const cid = String(c.ID);
+      // Берём самую позднюю дату из трёх источников: активность, дата сделки, дата изменения карточки
+      const candidates = [lastActTouch[cid], lastDealTouch[cid], c.DATE_MODIFY].filter(Boolean);
+      if (!candidates.length) continue;
+      const last = candidates.sort().reverse()[0];
       const days = Math.floor((now - new Date(last)) / 86400000);
       if (days >= STALE_DAYS) {
-        stale.push({ name: c.TITLE || `Компания #${c.ID}`, manager: DARYA_GROUP_NAMES[String(c.ASSIGNED_BY_ID)] || '?', days });
+        stale.push({
+          id: c.ID,
+          name: c.TITLE || `Компания #${c.ID}`,
+          manager: DARYA_GROUP_NAMES[String(c.ASSIGNED_BY_ID)] || '?',
+          days,
+          url: `https://${BX_DOMAIN}/crm/company/details/${c.ID}/`,
+        });
       }
     }
     stale.sort((a,b) => b.days - a.days);
-    document.getElementById('staleNote').textContent = `Компании без единого действия ${STALE_DAYS}+ дней (только те, где были сделки)`;
+    document.getElementById('staleNote').textContent = `Компании без звонков, комментариев и сделок ${STALE_DAYS}+ дней (только с историей у группы)`;
     document.getElementById('staleBody').innerHTML = stale.length
-      ? stale.map(c => `<tr><td class="mname">${c.name}</td><td>${c.manager}</td><td>${c.days}</td></tr>`).join('')
+      ? stale.map(c => `<tr>
+          <td class="mname"><a href="${c.url}" target="_blank" style="color:#2563eb;text-decoration:none;font-weight:600">${c.name}</a></td>
+          <td>${c.manager}</td>
+          <td>${c.days}</td>
+        </tr>`).join('')
       : '<tr><td colspan="3" class="zero" style="text-align:center">Зависших контактов нет 🎉</td></tr>';
   } catch(e) {
     document.getElementById('staleBody').innerHTML = `<tr><td colspan="3" class="err">Ошибка: ${e.message}</td></tr>`;
