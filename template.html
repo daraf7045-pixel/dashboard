@@ -13,6 +13,12 @@ header h1{font-size:18px;font-weight:700;color:#0f172a}
 .meta{color:#64748b;font-size:12px;margin-top:3px}
 .btn-month{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s;border:2px solid #2563eb;background:#fff;color:#2563eb}
 .btn-month.active{background:#2563eb;color:#fff}
+/* Навигация между страницами */
+.page-nav{display:flex;gap:8px;margin-bottom:16px}
+.page-btn{padding:10px 24px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;border:2px solid #2563eb;background:#fff;color:#2563eb;transition:all .15s}
+.page-btn.active{background:#2563eb;color:#fff}
+.page{display:none}
+.page.active{display:block}
 .section-title{font-size:15px;font-weight:700;color:#0f172a;margin:20px 0 10px;padding-left:10px;border-left:4px solid #2563eb}
 .kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
 .kpi-day{grid-template-columns:repeat(5,1fr)}
@@ -48,6 +54,15 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
 </div>
 </header>
 
+<!-- Навигация между страницами -->
+<div class="page-nav">
+<button class="page-btn active" onclick="showPage('main')">📊 Дашборд</button>
+<button class="page-btn" onclick="showPage('analytics')">📋 Аналитика</button>
+</div>
+
+<!-- СТРАНИЦА 1: Основной дашборд -->
+<div id="page-main" class="page active">
+
 <div class="section-title">📅 Результаты за месяц</div>
 <div style="display:flex;gap:6px;margin-bottom:10px">
 <button class="btn-month" data-tab="month" data-key="prev" onclick="showTab('month','prev')">Прошлый</button>
@@ -55,13 +70,13 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
 <button class="btn-month" data-tab="month" data-key="next" onclick="showTab('month','next')">Следующий</button>
 </div>
 <div id="month-current" class="tabpanel active">
-<table><thead><tr><th>Менеджер</th><th>План</th><th>Выручка</th><th>Остаток</th></tr></thead><tbody id="month-current-body"></tbody></table>
+<table><thead><tr><th>Менеджер</th><th>План</th><th>Выручка</th><th>%</th><th>Остаток</th></tr></thead><tbody id="month-current-body"></tbody></table>
 </div>
 <div id="month-prev" class="tabpanel">
-<table><thead><tr><th>Менеджер</th><th>План</th><th>Выручка</th><th>Остаток</th></tr></thead><tbody id="month-prev-body"></tbody></table>
+<table><thead><tr><th>Менеджер</th><th>План</th><th>Выручка</th><th>%</th><th>Остаток</th></tr></thead><tbody id="month-prev-body"></tbody></table>
 </div>
 <div id="month-next" class="tabpanel">
-<table><thead><tr><th>Менеджер</th><th>План</th><th>Выручка</th><th>Остаток</th></tr></thead><tbody id="month-next-body"></tbody></table>
+<table><thead><tr><th>Менеджер</th><th>План</th><th>Выручка</th><th>%</th><th>Остаток</th></tr></thead><tbody id="month-next-body"></tbody></table>
 </div>
 
 <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px">
@@ -78,12 +93,19 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
 <table><thead><tr><th>Менеджер</th><th>Звонки&nbsp;&gt;40с</th><th>Новые&nbsp;сделки</th><th>Подписано</th><th>Реализовано</th><th>Задачи</th></tr></thead><tbody id="day-yesterday-body"></tbody></table>
 </div>
 
+</div><!-- /page-main -->
+
+<!-- СТРАНИЦА 2: Аналитика -->
+<div id="page-analytics" class="page">
+
 <div class="section-title">❌ Отказы за неделю — группа Дарьи</div>
 <div id="rejections-box"></div>
 
 <div class="section-title">🧊 Зависшие контакты — группа Дарьи</div>
 <div class="stale-note" id="stale-note"></div>
 <table><thead><tr><th>Компания</th><th>Менеджер</th><th>Дней без действий</th></tr></thead><tbody id="stale-body"></tbody></table>
+
+</div><!-- /page-analytics -->
 
 <footer>Дашборд обновляется автоматически. Данные считаются на сервере — вебхук нигде не виден в коде страницы.</footer>
 </div>
@@ -94,18 +116,25 @@ const DATA = __DATA_JSON__;
 function fmtMoney(n){ if(!n) return '—'; return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
 function fmtNum(n){ return n ? String(n) : '—'; }
 
-function showTab(group, key){
-document.querySelectorAll(`.btn-month[data-tab="${group}"]`).forEach(b=>b.classList.toggle('active', b.dataset.key===key));
-document.querySelectorAll(`[id^="${group}-"]`).forEach(el=>el.classList.remove('active'));
-document.getElementById(`${group}-${key}`).classList.add('active');
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.page-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  event.target.classList.add('active');
 }
 
-// Месячные таблицы уже отрендерены на сервере (строки в DATA.months.*.rows)
+function showTab(group, key){
+  document.querySelectorAll(`.btn-month[data-tab="${group}"]`).forEach(b=>b.classList.toggle('active', b.dataset.key===key));
+  document.querySelectorAll(`[id^="${group}-"]`).forEach(el=>el.classList.remove('active'));
+  document.getElementById(`${group}-${key}`).classList.add('active');
+}
+
+// Месячные таблицы
 for (const key of ['current','prev','next']) {
-document.getElementById(`month-${key}-body`).innerHTML = DATA.months[key].rows;
+  document.getElementById(`month-${key}-body`).innerHTML = DATA.months[key].rows;
 }
 for (const key of ['today','yesterday']) {
-document.getElementById(`day-${key}-body`).innerHTML = DATA.days[key].rows;
+  document.getElementById(`day-${key}-body`).innerHTML = DATA.days[key].rows;
 }
 
 // Отказы
@@ -114,11 +143,11 @@ const maxCount = Math.max(1, ...rj.by_reason.map(r=>r[1]));
 let rjHtml = `<div style="background:#fff;border-radius:10px;padding:16px 18px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:16px">`;
 rjHtml += `<div style="font-weight:700;margin-bottom:10px">Всего отказов: ${rj.total}</div>`;
 for (const [reason, count] of rj.by_reason) {
-const pct = Math.round(count / maxCount * 100);
-rjHtml += `<div class="reason-bar"><div class="lbl">${reason}</div><div class="bar"><div class="fill" style="width:${pct}%"></div></div><div class="cnt">${count}</div></div>`;
+  const pct = Math.round(count / maxCount * 100);
+  rjHtml += `<div class="reason-bar"><div class="lbl">${reason}</div><div class="bar"><div class="fill" style="width:${pct}%"></div></div><div class="cnt">${count}</div></div>`;
 }
 if (!rj.reason_field_found) {
-rjHtml += `<div class="stale-note" style="margin-top:8px">⚠ Поле "причина отказа" не найдено автоматически — показано общее число без разбивки. Нужна калибровка.</div>`;
+  rjHtml += `<div class="stale-note" style="margin-top:8px">⚠ Поле "причина отказа" не найдено автоматически — показано общее число без разбивки.</div>`;
 }
 rjHtml += `</div>`;
 document.getElementById('rejections-box').innerHTML = rjHtml;
@@ -126,8 +155,8 @@ document.getElementById('rejections-box').innerHTML = rjHtml;
 // Зависшие контакты
 document.getElementById('stale-note').textContent = `Компании без единого действия ${DATA.staleDays}+ дней`;
 document.getElementById('stale-body').innerHTML = DATA.staleContacts.length
-? DATA.staleContacts.map(c => `<tr><td class="mname">${c.name}</td><td>${c.manager}</td><td>${c.days}</td></tr>`).join('')
-: '<tr><td colspan="3" style="color:#94a3b8;text-align:center">Зависших контактов нет 🎉</td></tr>';
+  ? DATA.staleContacts.map(c => `<tr><td class="mname">${c.name}</td><td>${c.manager}</td><td>${c.days}</td></tr>`).join('')
+  : '<tr><td colspan="3" style="color:#94a3b8;text-align:center">Зависших контактов нет 🎉</td></tr>';
 </script>
 </body>
 </html>

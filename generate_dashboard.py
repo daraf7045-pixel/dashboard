@@ -378,9 +378,12 @@ def build_month_table_rows(managers_data, key_real, key_plan):
         plan = m.get(key_plan, 0)
         real = m.get(key_real, 0)
         rem = plan - real
-        rem_html = "—" if plan <= 0 else ("✓ Выполнен" if rem <= 0 else fmt_money(rem))
+        pct = round(real / plan * 100) if plan > 0 else 0
+        pct_cls = 'green' if pct >= 80 else ('orange' if pct >= 60 else 'red')
+        pct_html = f"<span class='{pct_cls}' style='font-weight:700'>{pct}%</span>" if plan > 0 else "—"
+        rem_html = "—" if plan <= 0 else ("<span class='green'>✓ Выполнен</span>" if rem <= 0 else fmt_money(rem))
         rows.append(f"<tr><td class='mname'>{name}</td><td class='money'>{fmt_money(plan) if plan else '—'}</td>"
-                     f"<td class='money'>{fmt_money(real)}</td><td>{rem_html}</td></tr>")
+                     f"<td class='money'>{fmt_money(real)}</td><td>{pct_html}</td><td>{rem_html}</td></tr>")
     return "".join(rows)
 
 
