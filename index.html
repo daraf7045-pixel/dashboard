@@ -78,6 +78,20 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
 .hidden{display:none!important}
 .err{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;
      padding:14px 18px;color:#dc2626;font-size:13px;margin-bottom:16px}
+/* Навигация между страницами */
+.page-nav{display:flex;gap:8px;margin-bottom:16px}
+.page-btn{padding:10px 24px;border-radius:10px;font-size:14px;font-weight:700;
+          cursor:pointer;border:2px solid #2563eb;background:#fff;color:#2563eb;transition:all .15s}
+.page-btn.active{background:#2563eb;color:#fff}
+.page{display:none}
+.page.active{display:block}
+/* Аналитика */
+.reason-bar{display:flex;align-items:center;gap:10px;padding:6px 0}
+.reason-bar .rlbl{width:180px;font-size:13px;color:#334155;flex-shrink:0}
+.reason-bar .rbar{background:#dbeafe;border-radius:4px;height:18px;flex:1}
+.reason-bar .rfill{background:#2563eb;border-radius:4px;height:100%}
+.reason-bar .rcnt{width:28px;text-align:right;font-weight:600;font-size:13px;flex-shrink:0}
+.stale-note{font-size:12px;color:#94a3b8;margin:-6px 0 10px}
 
 /* ── Мобильные стили (≤ 640px) ── */
 @media (max-width:640px){
@@ -118,46 +132,70 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
 
   <div class="err hidden" id="errBox"></div>
 
-  <div id="dashboard" class="hidden">
-
-    <!-- ── БЛОК 1: Результаты за месяц ── -->
-    <div class="section-title" id="secMonthTitle">📅 Результаты за месяц</div>
-    <div class="kpi kpi-month" id="kpiMonth"></div>
-    <table>
-      <thead><tr>
-        <th>Менеджер</th>
-        <th>План</th>
-        <th>Выручка</th>
-        <th>Остаток</th>
-      </tr></thead>
-      <tbody id="tbodyMonth"></tbody>
-    </table>
-
-    <!-- ── БЛОК 2: Отчёт за день ── -->
-    <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px">
-      <div class="section-title" style="margin:0" id="secDayTitle">📊 Отчёт за день</div>
-      <div style="display:flex;gap:6px">
-        <button class="btn-month" id="btnDayYest"  onclick="setDayView('yesterday')" style="background:#fff;color:#2563eb;border:2px solid #2563eb;padding:6px 12px;font-size:12px">Вчера</button>
-        <button class="btn-month" id="btnDayToday" onclick="setDayView('today')"     style="background:#2563eb;color:#fff;border:2px solid #2563eb;padding:6px 12px;font-size:12px">Сегодня</button>
-      </div>
-    </div>
-    <div class="kpi kpi-day" id="kpiDay"></div>
-    <table>
-      <thead><tr>
-        <th>Менеджер</th>
-        <th>Звонки&nbsp;&gt;40с</th>
-        <th>Новые&nbsp;сделки</th>
-        <th>Подписано</th>
-        <th>Успешно реализовано</th>
-        <th>Задачи</th>
-      </tr></thead>
-      <tbody id="tbodyDay"></tbody>
-    </table>
-
-    <!-- Карточки: мобиль -->
-    <div class="mgr-cards" id="mgrCards"></div>
-    <footer id="footer"></footer>
+  <!-- Навигация между страницами -->
+  <div class="page-nav hidden" id="pageNav">
+    <button class="page-btn active" id="pageBtnMain" onclick="showPage('main')">📊 Дашборд</button>
+    <button class="page-btn" id="pageBtnAnalytics" onclick="showPage('analytics')">📋 Аналитика</button>
   </div>
+
+  <!-- ── СТРАНИЦА 1: Дашборд ── -->
+  <div id="pageDashboard" class="hidden page active">
+
+    <div id="dashboard">
+      <!-- ── БЛОК 1: Результаты за месяц ── -->
+      <div class="section-title" id="secMonthTitle">📅 Результаты за месяц</div>
+      <div class="kpi kpi-month" id="kpiMonth"></div>
+      <table>
+        <thead><tr>
+          <th>Менеджер</th>
+          <th>План</th>
+          <th>Выручка</th>
+          <th>%</th>
+          <th>Остаток</th>
+        </tr></thead>
+        <tbody id="tbodyMonth"></tbody>
+      </table>
+
+      <!-- ── БЛОК 2: Отчёт за день ── -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px">
+        <div class="section-title" style="margin:0" id="secDayTitle">📊 Отчёт за день</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn-month" id="btnDayYest"  onclick="setDayView('yesterday')" style="background:#fff;color:#2563eb;border:2px solid #2563eb;padding:6px 12px;font-size:12px">Вчера</button>
+          <button class="btn-month" id="btnDayToday" onclick="setDayView('today')"     style="background:#2563eb;color:#fff;border:2px solid #2563eb;padding:6px 12px;font-size:12px">Сегодня</button>
+        </div>
+      </div>
+      <div class="kpi kpi-day" id="kpiDay"></div>
+      <table>
+        <thead><tr>
+          <th>Менеджер</th>
+          <th>Звонки&nbsp;&gt;40с</th>
+          <th>Новые&nbsp;сделки</th>
+          <th>Подписано</th>
+          <th>Успешно реализовано</th>
+          <th>Задачи</th>
+        </tr></thead>
+        <tbody id="tbodyDay"></tbody>
+      </table>
+
+      <!-- Карточки: мобиль -->
+      <div class="mgr-cards" id="mgrCards"></div>
+      <footer id="footer"></footer>
+    </div>
+  </div>
+
+  <!-- ── СТРАНИЦА 2: Аналитика ── -->
+  <div id="pageAnalytics" class="hidden page">
+    <div class="section-title">❌ Отказы за неделю — группа Дарьи</div>
+    <div id="rejectionsBox"><div class="status" style="display:flex"><div class="spinner"></div><span style="margin-left:10px;color:#64748b">Загрузка...</span></div></div>
+
+    <div class="section-title" style="margin-top:24px">🧊 Зависшие контакты — группа Дарьи</div>
+    <div class="stale-note" id="staleNote"></div>
+    <table>
+      <thead><tr><th>Компания</th><th>Менеджер</th><th>Дней без действий</th></tr></thead>
+      <tbody id="staleBody"><tr><td colspan="3" class="zero" style="text-align:center">Загрузка...</td></tr></tbody>
+    </table>
+  </div>
+
 </div>
 
 <script>
@@ -562,7 +600,105 @@ function saveYesterdayCache(yd, data) {
 // ── UI ────────────────────────────────────────────────────────────────────────
 function setStatus(txt) { document.getElementById('statusText').textContent = txt; }
 function showStatus(show) { document.getElementById('status').classList.toggle('hidden', !show); }
-function showDash(show)   { document.getElementById('dashboard').classList.toggle('hidden', !show); }
+function showDash(show) {
+  document.getElementById('pageDashboard').classList.toggle('hidden', !show);
+  document.getElementById('pageNav').classList.toggle('hidden', !show);
+}
+
+// ── Навигация между страницами ───────────────────────────────────────────────
+function showPage(name) {
+  const isMain = name === 'main';
+  document.getElementById('pageDashboard').classList.toggle('active', isMain);
+  document.getElementById('pageAnalytics').classList.toggle('active', !isMain);
+  document.getElementById('pageDashboard').classList.toggle('hidden', !isMain);
+  document.getElementById('pageAnalytics').classList.toggle('hidden', isMain);
+  document.getElementById('pageBtnMain').classList.toggle('active', isMain);
+  document.getElementById('pageBtnAnalytics').classList.toggle('active', !isMain);
+  if (!isMain && !analyticsLoaded) loadAnalytics();
+}
+
+// ── Аналитика: отказы и зависшие контакты ───────────────────────────────────
+const DARYA_GROUP_IDS = ['12752', '9174', '14262']; // Кирасирова, Воронежцева, Айсина
+const DARYA_GROUP_NAMES = { '12752': 'Кирасирова Анна', '9174': 'Воронежцева Алина', '14262': 'Айсина Динара' };
+const REASON_FIELD = 'UF_CRM_1689760945480';
+const STALE_DAYS = 45;
+let analyticsLoaded = false;
+
+async function getReasonLabels() {
+  const fields = await bx('crm.deal.fields', {});
+  const meta = fields?.result?.[REASON_FIELD];
+  if (!meta) return {};
+  return Object.fromEntries((meta.items || []).map(it => [String(it.ID), it.VALUE]));
+}
+
+async function loadAnalytics() {
+  analyticsLoaded = true;
+  const weekAgo = (() => { const d = mskNow(); d.setDate(d.getDate()-7); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; })();
+
+  // Отказы
+  try {
+    const [labels, deals] = await Promise.all([
+      getReasonLabels(),
+      paginateAll('crm.deal.list', {
+        filter: { CATEGORY_ID, ASSIGNED_BY_ID: DARYA_GROUP_IDS, STAGE_SEMANTIC_ID: 'F', '>=DATE_MODIFY': weekAgo },
+        select: ['ID', 'ASSIGNED_BY_ID', REASON_FIELD],
+      }),
+    ]);
+    const byReason = {};
+    for (const d of deals) {
+      const raw = d[REASON_FIELD];
+      const reason = (raw && labels[String(raw)]) || raw || 'Не указано';
+      byReason[reason] = (byReason[reason] || 0) + 1;
+    }
+    const sorted = Object.entries(byReason).sort((a,b) => b[1]-a[1]);
+    const maxCnt = Math.max(1, ...sorted.map(r=>r[1]));
+    let html = `<div style="background:#fff;border-radius:10px;padding:16px 18px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:16px">`;
+    html += `<div style="font-weight:700;margin-bottom:10px">Всего отказов: ${deals.length}</div>`;
+    for (const [reason, cnt] of sorted) {
+      const pct = Math.round(cnt/maxCnt*100);
+      html += `<div class="reason-bar"><div class="rlbl">${reason}</div><div class="rbar"><div class="rfill" style="width:${pct}%"></div></div><div class="rcnt">${cnt}</div></div>`;
+    }
+    html += `</div>`;
+    document.getElementById('rejectionsBox').innerHTML = html;
+  } catch(e) {
+    document.getElementById('rejectionsBox').innerHTML = `<div class="err">Ошибка загрузки отказов: ${e.message}</div>`;
+  }
+
+  // Зависшие контакты
+  try {
+    const companies = await paginateAll('crm.company.list', {
+      filter: { ASSIGNED_BY_ID: DARYA_GROUP_IDS },
+      select: ['ID', 'TITLE', 'ASSIGNED_BY_ID', 'DATE_MODIFY'],
+    });
+    const activities = await paginateAll('crm.activity.list', {
+      filter: { OWNER_TYPE_ID: 4, RESPONSIBLE_ID: DARYA_GROUP_IDS },
+      select: ['OWNER_ID', 'CREATED'],
+      order: { CREATED: 'DESC' },
+    });
+    const lastActivity = {};
+    for (const a of activities) {
+      const oid = String(a.OWNER_ID);
+      if (!lastActivity[oid]) lastActivity[oid] = a.CREATED;
+    }
+    const now = mskNow();
+    const stale = [];
+    for (const c of companies) {
+      const last = lastActivity[String(c.ID)] || c.DATE_MODIFY;
+      if (!last) continue;
+      const days = Math.floor((now - new Date(last)) / 86400000);
+      if (days >= STALE_DAYS) {
+        stale.push({ name: c.TITLE || `Компания #${c.ID}`, manager: DARYA_GROUP_NAMES[String(c.ASSIGNED_BY_ID)] || '?', days });
+      }
+    }
+    stale.sort((a,b) => b.days - a.days);
+    document.getElementById('staleNote').textContent = `Компании без единого действия ${STALE_DAYS}+ дней`;
+    document.getElementById('staleBody').innerHTML = stale.length
+      ? stale.map(c => `<tr><td class="mname">${c.name}</td><td>${c.manager}</td><td>${c.days}</td></tr>`).join('')
+      : '<tr><td colspan="3" class="zero" style="text-align:center">Зависших контактов нет 🎉</td></tr>';
+  } catch(e) {
+    document.getElementById('staleBody').innerHTML = `<tr><td colspan="3" class="err">Ошибка: ${e.message}</td></tr>`;
+  }
+}
 function showErr(msg) {
   const el = document.getElementById('errBox');
   el.textContent = msg; el.classList.toggle('hidden', !msg);
@@ -649,13 +785,13 @@ function renderDashboard(today, managers, lastCheck, apiCalls, elapsed) {
     const trophy = rem <= 0 && mPlan > 0 ? TROPHY : '';
     const pct = mPlan > 0 ? Math.round((mReal / mPlan) * 100) : 0;
     const pctCls = pct >= 80 ? 'pct-done' : pct >= 60 ? 'pct-mid' : 'pct-low';
-    const pctBadge = mPlan > 0 ? `<span class="pct-badge ${pctCls}">${pct}%</span>` : '';
+    const pctTd = mPlan > 0 ? `<td><span class="pct-badge ${pctCls}">${pct}%</span></td>` : '<td class="zero">—</td>';
     const remTd = mPlan <= 0
       ? `<td class="zero">—</td>`
       : rem <= 0
         ? `<td class="plan-done">✓ Выполнен</td>`
         : `<td class="plan-left">${fmtMoney(rem)}</td>`;
-    return `<tr><td class="mname">${name}${trophy}${pctBadge}</td><td class="money">${mPlan > 0 ? fmtMoney(mPlan) : '—'}</td>${td(mReal,fmtMoney)}${remTd}</tr>`;
+    return `<tr><td class="mname">${name}${trophy}</td><td class="money">${mPlan > 0 ? fmtMoney(mPlan) : '—'}</td>${td(mReal,fmtMoney)}${pctTd}${remTd}</tr>`;
   }).join('');
 
   // Таблица — день
