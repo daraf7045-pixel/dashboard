@@ -92,6 +92,13 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
 .reason-bar .rfill{background:#2563eb;border-radius:4px;height:100%}
 .reason-bar .rcnt{width:28px;text-align:right;font-weight:600;font-size:13px;flex-shrink:0}
 .stale-note{font-size:12px;color:#94a3b8;margin:-6px 0 10px}
+.stale-filter-row{display:flex}
+.stale-filter{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #cbd5e1;background:#fff;color:#64748b;transition:all .15s}
+.stale-filter.active{border-color:#2563eb;background:#eff6ff;color:#2563eb}
+.days-badge{display:inline-block;padding:2px 10px;border-radius:20px;font-weight:700;font-size:13px}
+.days-red{background:#fee2e2;color:#dc2626}
+.days-orange{background:#ffedd5;color:#d97706}
+.days-yellow{background:#fef9c3;color:#92400e}
 
 /* ── Мобильные стили (≤ 640px) ── */
 @media (max-width:640px){
@@ -190,8 +197,15 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
 
     <div class="section-title" style="margin-top:24px">🧊 Зависшие контакты — группа Дарьи</div>
     <div class="stale-note" id="staleNote"></div>
+    <div class="stale-filter-row" id="staleFilterRow" style="display:none;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+      <span style="font-size:12px;color:#64748b;margin-right:2px">Менеджер:</span>
+      <button class="stale-filter active" data-mgr="all" onclick="staleFilter(this)">Все</button>
+      <button class="stale-filter" data-mgr="12752" onclick="staleFilter(this)">Анна</button>
+      <button class="stale-filter" data-mgr="9174" onclick="staleFilter(this)">Алина</button>
+      <button class="stale-filter" data-mgr="14262" onclick="staleFilter(this)">Динара</button>
+    </div>
     <table>
-      <thead><tr><th>Компания</th><th>Менеджер</th><th>Дней без действий</th></tr></thead>
+      <thead><tr><th>Компания</th><th>Менеджер</th><th>Дней без касания</th></tr></thead>
       <tbody id="staleBody"><tr><td colspan="3" class="zero" style="text-align:center">Загрузка...</td></tr></tbody>
     </table>
   </div>
@@ -620,6 +634,25 @@ function showPage(name) {
 // ── Аналитика: отказы и зависшие контакты ───────────────────────────────────
 const DARYA_GROUP_IDS   = ['12752', '9174', '14262']; // нынешние: Кирасирова, Воронежцева, Айсина
 const DARYA_GROUP_NAMES = { '12752': 'Кирасирова Анна', '9174': 'Воронежцева Алина', '14262': 'Айсина Динара' };
+
+let _allStaleData = [];
+let _staleActiveMgr = 'all';
+
+function staleFilter(btn) {
+  document.querySelectorAll('.stale-filter').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _staleActiveMgr = btn.dataset.mgr;
+  renderStaleTable();
+}
+function renderStaleTable() {
+  const rows = _staleActiveMgr === 'all' ? _allStaleData : _allStaleData.filter(c => c.mgrId === _staleActiveMgr);
+  document.getElementById('staleBody').innerHTML = rows.length
+    ? rows.map(c => {
+        const cls = c.days >= 90 ? 'days-red' : c.days >= 60 ? 'days-orange' : 'days-yellow';
+        return `<tr><td class="mname"><a href="${c.url}" target="_blank" style="color:#2563eb;text-decoration:none;font-weight:600">${c.name}</a></td><td>${c.manager}</td><td><span class="days-badge ${cls}">${c.days} дн.</span></td></tr>`;
+      }).join('')
+    : '<tr><td colspan="3" class="zero" style="text-align:center">Зависших контактов нет 🎉</td></tr>';
+}
 const FORMER_MGR_IDS    = ['10132', '1640', '7164'];  // бывшие: Тихонов, Гозюмова, Парфенова
 const ALL_GROUP_IDS     = [...DARYA_GROUP_IDS, ...FORMER_MGR_IDS];
 const REASON_FIELD = 'UF_CRM_1689760945480';
@@ -742,14 +775,12 @@ async function loadAnalytics() {
       }
     }
     stale.sort((a,b) => b.days - a.days);
+    _allStaleData = stale;
+    _staleActiveMgr = 'all';
+    document.querySelectorAll('.stale-filter').forEach(b => b.classList.toggle('active', b.dataset.mgr === 'all'));
     document.getElementById('staleNote').textContent = `Компании без звонков, комментариев и сделок ${STALE_DAYS}+ дней (только с историей у группы)`;
-    document.getElementById('staleBody').innerHTML = stale.length
-      ? stale.map(c => `<tr>
-          <td class="mname"><a href="${c.url}" target="_blank" style="color:#2563eb;text-decoration:none;font-weight:600">${c.name}</a></td>
-          <td>${c.manager}</td>
-          <td>${c.days}</td>
-        </tr>`).join('')
-      : '<tr><td colspan="3" class="zero" style="text-align:center">Зависших контактов нет 🎉</td></tr>';
+    document.getElementById('staleFilterRow').style.display = stale.length ? 'flex' : 'none';
+    renderStaleTable();
   } catch(e) {
     document.getElementById('staleBody').innerHTML = `<tr><td colspan="3" class="err">Ошибка: ${e.message}</td></tr>`;
   }
