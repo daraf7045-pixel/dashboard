@@ -643,7 +643,7 @@ async function loadAnalytics() {
       getReasonLabels(),
       paginateAll('crm.deal.list', {
         filter: { CATEGORY_ID, ASSIGNED_BY_ID: DARYA_GROUP_IDS, STAGE_SEMANTIC_ID: 'F', '>=DATE_MODIFY': weekAgo },
-        select: ['ID', 'ASSIGNED_BY_ID', REASON_FIELD, 'COMMENTS'],
+        select: ['ID', 'ASSIGNED_BY_ID', REASON_FIELD, 'UF_CRM_1689760975628'],
       }),
     ]);
 
@@ -656,8 +656,8 @@ async function loadAnalytics() {
       const raw = d[REASON_FIELD];
       const reason = (raw && labels[String(raw)]) || raw || 'Не указано';
       byReason[reason] = (byReason[reason] || 0) + 1;
-      if (drugoeId && String(raw) === drugoeId && d.COMMENTS) {
-        drugoeComments.push(d.COMMENTS.trim());
+      if (drugoeId && String(raw) === drugoeId && d['UF_CRM_1689760975628']) {
+        drugoeComments.push(d['UF_CRM_1689760975628'].trim());
       }
     }
 
