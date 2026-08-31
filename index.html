@@ -649,7 +649,7 @@ function renderStaleTable() {
   document.getElementById('staleBody').innerHTML = rows.length
     ? rows.map(c => {
         const cls = c.days >= 90 ? 'days-red' : c.days >= 60 ? 'days-orange' : 'days-yellow';
-        const vipMark = c.vip ? ` <span title="${c.wonCnt} успешных сделок" style="color:#ef4444;font-size:15px;letter-spacing:-2px">!!!</span>` : '';
+        const vipMark = c.vip ? ` <span style="color:#ef4444;font-size:12px;font-weight:700;white-space:nowrap">!!! ${c.wonCnt} сд.</span>` : '';
         return `<tr${c.vip ? ' style="background:#fff5f5"' : ''}><td class="mname"><a href="${c.url}" target="_blank" style="color:#2563eb;text-decoration:none;font-weight:600">${c.name}</a>${vipMark}</td><td>${c.manager}</td><td><span class="days-badge ${cls}">${c.days} дн.</span></td></tr>`;
       }).join('')
     : '<tr><td colspan="3" class="zero" style="text-align:center">Зависших контактов нет 🎉</td></tr>';

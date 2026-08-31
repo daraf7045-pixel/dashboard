@@ -175,7 +175,7 @@ function renderTable() {
   }
   document.getElementById('tableBody').innerHTML = rows.map((c, i) => {
     const cls = c.days >= 90 ? 'days-red' : c.days >= 60 ? 'days-orange' : 'days-yellow';
-    const vipMark = c.vip ? ` <span title="${c.wonCnt} успешных сделок" style="color:#ef4444;font-size:15px;letter-spacing:-2px">!!!</span>` : '';
+    const vipMark = c.vip ? ` <span style="color:#ef4444;font-size:12px;font-weight:700;white-space:nowrap">!!! ${c.wonCnt} сд.</span>` : '';
     return `<tr${c.vip ? ' style="background:#fff5f5"' : ''}>
       <td style="color:#94a3b8;font-size:12px">${i+1}</td>
       <td><a class="company-link" href="https://${BX_DOMAIN}/crm/company/details/${c.id}/" target="_blank">${c.name}</a>${vipMark}</td>
