@@ -175,7 +175,11 @@ function renderTable() {
   }
   document.getElementById('tableBody').innerHTML = rows.map((c, i) => {
     const cls = c.days >= 90 ? 'days-red' : c.days >= 60 ? 'days-orange' : 'days-yellow';
-    const vipMark = c.vip ? ` <span style="color:#ef4444;font-size:12px;font-weight:700;white-space:nowrap">!!! ${c.wonCnt} сд.</span>` : '';
+    const vipMark = c.wonCnt > 3
+      ? ` <span style="color:#ef4444;font-size:12px;font-weight:700;white-space:nowrap">!!! ${c.wonCnt} сд.</span>`
+      : c.wonCnt >= 1
+      ? ` <span style="color:#d97706;font-size:12px;font-weight:600;white-space:nowrap">${c.wonCnt} сд.</span>`
+      : '';
     return `<tr${c.vip ? ' style="background:#fff5f5"' : ''}>
       <td style="color:#94a3b8;font-size:12px">${i+1}</td>
       <td><a class="company-link" href="https://${BX_DOMAIN}/crm/company/details/${c.id}/" target="_blank">${c.name}</a>${vipMark}</td>
@@ -254,8 +258,8 @@ async function loadData() {
         });
       }
     }
-    // VIP (3+ успешных сделок) — наверх, внутри каждой группы по убыванию дней
-    allStale.sort((a, b) => (b.vip - a.vip) || (b.days - a.days));
+    const grp = c => c.wonCnt > 3 ? 0 : c.wonCnt >= 1 ? 1 : 2;
+    allStale.sort((a, b) => grp(a) - grp(b) || b.days - a.days);
 
     // Сводка
     const counts = { '12752': 0, '9174': 0, '14262': 0 };
