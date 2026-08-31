@@ -769,6 +769,7 @@ async function loadAnalytics() {
           id: c.ID,
           name: c.TITLE || `Компания #${c.ID}`,
           manager: DARYA_GROUP_NAMES[String(c.ASSIGNED_BY_ID)] || '?',
+          mgrId: String(c.ASSIGNED_BY_ID),
           days,
           url: `https://${BX_DOMAIN}/crm/company/details/${c.ID}/`,
         });
