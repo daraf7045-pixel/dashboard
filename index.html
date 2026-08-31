@@ -649,7 +649,8 @@ function renderStaleTable() {
   document.getElementById('staleBody').innerHTML = rows.length
     ? rows.map(c => {
         const cls = c.days >= 90 ? 'days-red' : c.days >= 60 ? 'days-orange' : 'days-yellow';
-        return `<tr><td class="mname"><a href="${c.url}" target="_blank" style="color:#2563eb;text-decoration:none;font-weight:600">${c.name}</a></td><td>${c.manager}</td><td><span class="days-badge ${cls}">${c.days} дн.</span></td></tr>`;
+        const vipMark = c.vip ? ` <span title="${c.wonCnt} успешных сделок" style="color:#ef4444;font-size:15px;letter-spacing:-2px">!!!</span>` : '';
+        return `<tr${c.vip ? ' style="background:#fff5f5"' : ''}><td class="mname"><a href="${c.url}" target="_blank" style="color:#2563eb;text-decoration:none;font-weight:600">${c.name}</a>${vipMark}</td><td>${c.manager}</td><td><span class="days-badge ${cls}">${c.days} дн.</span></td></tr>`;
       }).join('')
     : '<tr><td colspan="3" class="zero" style="text-align:center">Зависших контактов нет 🎉</td></tr>';
 }
@@ -722,15 +723,17 @@ async function loadAnalytics() {
     // Сделки с историей — нынешние и бывшие менеджеры группы
     const pastDeals = await paginateAll('crm.deal.list', {
       filter: { CATEGORY_ID, ASSIGNED_BY_ID: ALL_GROUP_IDS },
-      select: ['ID', 'COMPANY_ID', 'DATE_MODIFY'],
+      select: ['ID', 'COMPANY_ID', 'DATE_MODIFY', 'STAGE_SEMANTIC_ID'],
     });
     const companyIdsWithHistory = new Set(pastDeals.map(d => String(d.COMPANY_ID)).filter(c => c && c !== 'null'));
-    // Последнее касание через сделку
+    // Последнее касание через сделку + счёт успешных сделок
     const lastDealTouch = {};
+    const wonCount = {};
     for (const d of pastDeals) {
       const cid = String(d.COMPANY_ID);
       if (!cid || cid === 'null') continue;
       if (!lastDealTouch[cid] || d.DATE_MODIFY > lastDealTouch[cid]) lastDealTouch[cid] = d.DATE_MODIFY;
+      if (d.STAGE_SEMANTIC_ID === 'S') wonCount[cid] = (wonCount[cid] || 0) + 1;
     }
 
     // Компании, сейчас закреплённые за нынешними менеджерами
@@ -772,10 +775,13 @@ async function loadAnalytics() {
           mgrId: String(c.ASSIGNED_BY_ID),
           days,
           url: `https://${BX_DOMAIN}/crm/company/details/${c.ID}/`,
+          vip: (wonCount[cid] || 0) > 3,
+          wonCnt: wonCount[cid] || 0,
         });
       }
     }
-    stale.sort((a,b) => b.days - a.days);
+    // VIP (3+ успешных сделок) — наверх, внутри каждой группы по убыванию дней
+    stale.sort((a, b) => (b.vip - a.vip) || (b.days - a.days));
     _allStaleData = stale;
     _staleActiveMgr = 'all';
     document.querySelectorAll('.stale-filter').forEach(b => b.classList.toggle('active', b.dataset.mgr === 'all'));

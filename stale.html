@@ -175,9 +175,10 @@ function renderTable() {
   }
   document.getElementById('tableBody').innerHTML = rows.map((c, i) => {
     const cls = c.days >= 90 ? 'days-red' : c.days >= 60 ? 'days-orange' : 'days-yellow';
-    return `<tr>
+    const vipMark = c.vip ? ` <span title="${c.wonCnt} успешных сделок" style="color:#ef4444;font-size:15px;letter-spacing:-2px">!!!</span>` : '';
+    return `<tr${c.vip ? ' style="background:#fff5f5"' : ''}>
       <td style="color:#94a3b8;font-size:12px">${i+1}</td>
-      <td><a class="company-link" href="https://${BX_DOMAIN}/crm/company/details/${c.id}/" target="_blank">${c.name}</a></td>
+      <td><a class="company-link" href="https://${BX_DOMAIN}/crm/company/details/${c.id}/" target="_blank">${c.name}</a>${vipMark}</td>
       <td>${c.manager}</td>
       <td><span class="days-badge ${cls}">${c.days} дн.</span></td>
       <td style="color:#64748b;font-size:12px">${fmtDate(c.lastDate)}</td>
@@ -196,16 +197,18 @@ async function loadData() {
     // Сделки нынешних и бывших менеджеров — история + последнее касание
     const pastDeals = await paginateAll('crm.deal.list', {
       filter: { CATEGORY_ID, ASSIGNED_BY_ID: ALL_GROUP_IDS },
-      select: ['ID', 'COMPANY_ID', 'DATE_MODIFY'],
+      select: ['ID', 'COMPANY_ID', 'DATE_MODIFY', 'STAGE_SEMANTIC_ID'],
     });
     const companyIdsWithHistory = new Set(
       pastDeals.map(d => String(d.COMPANY_ID)).filter(c => c && c !== 'null' && c !== '0')
     );
     const lastDealTouch = {};
+    const wonCount = {};
     for (const d of pastDeals) {
       const cid = String(d.COMPANY_ID);
       if (!cid || cid === 'null' || cid === '0') continue;
       if (!lastDealTouch[cid] || d.DATE_MODIFY > lastDealTouch[cid]) lastDealTouch[cid] = d.DATE_MODIFY;
+      if (d.STAGE_SEMANTIC_ID === 'S') wonCount[cid] = (wonCount[cid] || 0) + 1;
     }
 
     // Компании нынешних менеджеров
@@ -246,10 +249,13 @@ async function loadData() {
           mgrId: String(c.ASSIGNED_BY_ID),
           days,
           lastDate,
+          vip: (wonCount[cid] || 0) > 3,
+          wonCnt: wonCount[cid] || 0,
         });
       }
     }
-    allStale.sort((a, b) => b.days - a.days);
+    // VIP (3+ успешных сделок) — наверх, внутри каждой группы по убыванию дней
+    allStale.sort((a, b) => (b.vip - a.vip) || (b.days - a.days));
 
     // Сводка
     const counts = { '12752': 0, '9174': 0, '14262': 0 };
