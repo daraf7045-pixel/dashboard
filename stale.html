@@ -224,7 +224,7 @@ async function loadData() {
     });
     const relevant = companies.filter(c => companyIdsWithHistory.has(String(c.ID)));
 
-    // Активности (звонки, письма, комментарии) — только менеджеров группы
+    // Активности (звонки, письма) — только менеджеров группы
     const now = mskNow();
     const cutoffDate = new Date(now); cutoffDate.setDate(cutoffDate.getDate() - STALE_DAYS - 1);
     const cutoffStr = `${cutoffDate.getFullYear()}-${pad(cutoffDate.getMonth()+1)}-${pad(cutoffDate.getDate())}T00:00:00`;
@@ -239,10 +239,22 @@ async function loadData() {
       if (!lastActTouch[oid] || a.CREATED > lastActTouch[oid]) lastActTouch[oid] = a.CREATED;
     }
 
+    // Комментарии на стене компании — менеджеры группы
+    const wallComments = await paginateAll('crm.timeline.comment.list', {
+      filter: { ENTITY_TYPE: 'company', AUTHOR_ID: DARYA_GROUP_IDS, '>=CREATED': cutoffStr },
+      select: ['ENTITY_ID', 'CREATED'],
+      order: { CREATED: 'DESC' },
+    });
+    const lastWallTouch = {};
+    for (const w of wallComments) {
+      const cid = String(w.ENTITY_ID);
+      if (!lastWallTouch[cid] || w.CREATED > lastWallTouch[cid]) lastWallTouch[cid] = w.CREATED;
+    }
+
     allStale = [];
     for (const c of relevant) {
       const cid = String(c.ID);
-      const candidates = [lastActTouch[cid], lastDealTouch[cid], c.DATE_MODIFY].filter(Boolean);
+      const candidates = [lastActTouch[cid], lastDealTouch[cid], lastWallTouch[cid], c.DATE_MODIFY].filter(Boolean);
       if (!candidates.length) continue;
       candidates.sort();
       const lastDate = candidates[candidates.length - 1];
