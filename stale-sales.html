@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Зависшие компании — отдел продаж</title>
+<title>Зависшие компании — Артур, Шахзод, Михаил</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#1e293b;font-size:14px;line-height:1.5}
@@ -56,10 +56,9 @@ tr:hover{background:#f8fafc}
 
   <div class="summary-bar" id="summaryBar" style="display:none">
     <div class="summary-card"><div class="lbl">Всего</div><div class="val" id="sumTotal">—</div></div>
-    <div class="summary-card"><div class="lbl">Анна</div><div class="val" id="sum12752">—</div></div>
-    <div class="summary-card"><div class="lbl">Алина</div><div class="val" id="sum9174">—</div></div>
-    <div class="summary-card"><div class="lbl">Динара</div><div class="val" id="sum14262">—</div></div>
-    <div class="summary-card"><div class="lbl">Дарья</div><div class="val" id="sum160">—</div></div>
+    <div class="summary-card"><div class="lbl">Артур</div><div class="val" id="sum826">—</div></div>
+    <div class="summary-card"><div class="lbl">Шахзод</div><div class="val" id="sum11574">—</div></div>
+    <div class="summary-card"><div class="lbl">Михаил</div><div class="val" id="sum12692">—</div></div>
   </div>
 
   <div class="section-title">Компании без касаний 45+ дней</div>
@@ -68,10 +67,9 @@ tr:hover{background:#f8fafc}
   <div class="filter-row" id="filterRow" style="display:none">
     <span style="font-size:12px;color:#64748b;margin-right:4px">Менеджер:</span>
     <button class="filter-btn active" data-mgr="all" onclick="applyFilter(this)">Все</button>
-    <button class="filter-btn" data-mgr="12752" onclick="applyFilter(this)">Анна</button>
-    <button class="filter-btn" data-mgr="9174" onclick="applyFilter(this)">Алина</button>
-    <button class="filter-btn" data-mgr="14262" onclick="applyFilter(this)">Динара</button>
-    <button class="filter-btn" data-mgr="160" onclick="applyFilter(this)">Дарья</button>
+    <button class="filter-btn" data-mgr="826" onclick="applyFilter(this)">Артур</button>
+    <button class="filter-btn" data-mgr="11574" onclick="applyFilter(this)">Шахзод</button>
+    <button class="filter-btn" data-mgr="12692" onclick="applyFilter(this)">Михаил</button>
   </div>
 
   <table>
@@ -95,9 +93,9 @@ const WH           = 'https://dcatering.bitrix24.ru/rest/160/ghlyw75jejp57sex';
 const CATEGORY_ID  = 4;
 const BX_DOMAIN    = 'dcatering.bitrix24.ru';
 const STALE_DAYS   = 45;
-const DARYA_GROUP_IDS   = ['12752', '9174', '14262', '160'];
-const DARYA_GROUP_NAMES = { '12752': 'Кирасирова Анна', '9174': 'Воронежцева Алина', '14262': 'Айсина Динара', '160': 'Федотова Дарья' };
-const FORMER_MGR_IDS    = ['10132', '1640', '7164'];
+const DARYA_GROUP_IDS   = ['826', '11574', '12692'];
+const DARYA_GROUP_NAMES = { '826': 'Трегуб Артур', '11574': 'Курбонов Шахзод', '12692': 'Ходак Михаил' };
+const FORMER_MGR_IDS    = ['10132', '1640', '7164', '12752', '9174', '14262', '160'];
 const ALL_GROUP_IDS     = [...DARYA_GROUP_IDS, ...FORMER_MGR_IDS];
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -276,13 +274,12 @@ async function loadData() {
     allStale.sort((a, b) => grp(a) - grp(b) || b.days - a.days);
 
     // Сводка
-    const counts = { '12752': 0, '9174': 0, '14262': 0, '160': 0 };
+    const counts = { '826': 0, '11574': 0, '12692': 0 };
     for (const c of allStale) { if (counts[c.mgrId] !== undefined) counts[c.mgrId]++; }
     document.getElementById('sumTotal').textContent = allStale.length;
-    document.getElementById('sum12752').textContent = counts['12752'];
-    document.getElementById('sum9174').textContent = counts['9174'];
-    document.getElementById('sum14262').textContent = counts['14262'];
-    document.getElementById('sum160').textContent = counts['160'];
+    document.getElementById('sum826').textContent = counts['826'];
+    document.getElementById('sum11574').textContent = counts['11574'];
+    document.getElementById('sum12692').textContent = counts['12692'];
     document.getElementById('summaryBar').style.display = 'flex';
     document.getElementById('filterRow').style.display = 'flex';
 

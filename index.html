@@ -203,6 +203,7 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:12px 0}
       <button class="stale-filter" data-mgr="12752" onclick="staleFilter(this)">Анна</button>
       <button class="stale-filter" data-mgr="9174" onclick="staleFilter(this)">Алина</button>
       <button class="stale-filter" data-mgr="14262" onclick="staleFilter(this)">Динара</button>
+      <button class="stale-filter" data-mgr="160" onclick="staleFilter(this)">Дарья</button>
     </div>
     <table>
       <thead><tr><th>Компания</th><th>Менеджер</th><th>Дней без касания</th></tr></thead>
@@ -632,8 +633,8 @@ function showPage(name) {
 }
 
 // ── Аналитика: отказы и зависшие контакты ───────────────────────────────────
-const DARYA_GROUP_IDS   = ['12752', '9174', '14262']; // нынешние: Кирасирова, Воронежцева, Айсина
-const DARYA_GROUP_NAMES = { '12752': 'Кирасирова Анна', '9174': 'Воронежцева Алина', '14262': 'Айсина Динара' };
+const DARYA_GROUP_IDS   = ['12752', '9174', '14262', '160']; // Кирасирова, Воронежцева, Айсина, Федотова
+const DARYA_GROUP_NAMES = { '12752': 'Кирасирова Анна', '9174': 'Воронежцева Алина', '14262': 'Айсина Динара', '160': 'Федотова Дарья' };
 
 let _allStaleData = [];
 let _staleActiveMgr = 'all';
