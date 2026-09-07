@@ -331,7 +331,7 @@ async function bx(method, params={}, retries=6) {
   let delay = 1000;
   for (let i = 0; i < retries; i++) {
     try {
-      const r = await fetch(url);
+      const r = await fetch(url, {cache: 'no-store'});
       if (r.status === 429 || r.status === 503) { await sleep(delay); delay = Math.min(delay*2,30000); continue; }
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const d = await r.json();
@@ -748,19 +748,37 @@ async function loadAnalytics() {
     });
     const relevant = companies.filter(c => companyIdsWithHistory.has(String(c.ID)));
 
-    // Активности (звонки, письма) по компаниям — только менеджеры группы
+    // Активности (звонки, письма) напрямую по компаниям — менеджеры группы
     const now = mskNow();
     const cutoffDate = new Date(now); cutoffDate.setDate(cutoffDate.getDate() - STALE_DAYS - 1);
     const cutoffStr = `${cutoffDate.getFullYear()}-${pad(cutoffDate.getMonth()+1)}-${pad(cutoffDate.getDate())}T00:00:00`;
-    const activities = await paginateAll('crm.activity.list', {
-      filter: { OWNER_TYPE_ID: 4, RESPONSIBLE_ID: DARYA_GROUP_IDS, '>=CREATED': cutoffStr },
-      select: ['OWNER_ID', 'CREATED'],
-      order: { CREATED: 'DESC' },
-    });
+    const [compActs, contActs] = await Promise.all([
+      paginateAll('crm.activity.list', {
+        filter: { OWNER_TYPE_ID: 4, RESPONSIBLE_ID: DARYA_GROUP_IDS, '>=CREATED': cutoffStr },
+        select: ['OWNER_ID', 'CREATED'], order: { CREATED: 'DESC' },
+      }),
+      paginateAll('crm.activity.list', {
+        filter: { OWNER_TYPE_ID: 3, RESPONSIBLE_ID: DARYA_GROUP_IDS, '>=CREATED': cutoffStr },
+        select: ['OWNER_ID', 'CREATED'], order: { CREATED: 'DESC' },
+      }),
+    ]);
     const lastActTouch = {};
-    for (const a of activities) {
-      const oid = String(a.OWNER_ID);
-      if (!lastActTouch[oid] || a.CREATED > lastActTouch[oid]) lastActTouch[oid] = a.CREATED;
+    for (const a of compActs) {
+      const cid = String(a.OWNER_ID);
+      if (!lastActTouch[cid] || a.CREATED > lastActTouch[cid]) lastActTouch[cid] = a.CREATED;
+    }
+    // Звонки к контактам → маппим контакт → компания
+    if (contActs.length) {
+      const contIds = [...new Set(contActs.map(a => String(a.OWNER_ID)))];
+      const contacts = await paginateAll('crm.contact.list', {
+        filter: { ID: contIds }, select: ['ID', 'COMPANY_ID'],
+      });
+      const cont2co = {};
+      for (const c of contacts) { if (c.COMPANY_ID && c.COMPANY_ID !== '0') cont2co[String(c.ID)] = String(c.COMPANY_ID); }
+      for (const a of contActs) {
+        const cid = cont2co[String(a.OWNER_ID)]; if (!cid) continue;
+        if (!lastActTouch[cid] || a.CREATED > lastActTouch[cid]) lastActTouch[cid] = a.CREATED;
+      }
     }
 
     // Комментарии на стене компании — менеджеры группы
