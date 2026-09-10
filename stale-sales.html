@@ -157,6 +157,7 @@ async function paginateAll(method, params={}) {
 }
 
 let allStale = [];
+let pastDeals = [];
 let activeFilter = 'all';
 
 function applyFilter(btn) {
@@ -188,6 +189,7 @@ async function refineWithComments(now, cutoffStr) {
     const chunk = snapshot.slice(i, Math.min(i + CHUNK, total));
     await Promise.all(chunk.map(async (c) => {
       try {
+        // Комментарии на стене компании
         const resp = await bx('crm.timeline.comment.list', {
           filter: { ENTITY_TYPE: 'company', ENTITY_ID: c.id, '>=CREATED': cutoffStr },
           select: ['CREATED', 'AUTHOR_ID'], order: { CREATED: 'DESC' },
@@ -196,6 +198,22 @@ async function refineWithComments(now, cutoffStr) {
         if (recent.length && recent[0].CREATED > c.lastDate) {
           c.lastDate = recent[0].CREATED;
           c.days = Math.floor((now - new Date(c.lastDate)) / 86400000);
+        }
+        // Комментарии в сделках компании
+        const dealIds = pastDeals
+          .filter(d => String(d.COMPANY_ID) === String(c.id))
+          .map(d => String(d.ID))
+          .slice(0, 5);
+        for (const did of dealIds) {
+          const dr = await bx('crm.timeline.comment.list', {
+            filter: { ENTITY_TYPE: 'deal', ENTITY_ID: did, '>=CREATED': cutoffStr },
+            select: ['CREATED', 'AUTHOR_ID'], order: { CREATED: 'DESC' },
+          });
+          const dm = (dr.result || []).filter(cm => DARYA_GROUP_IDS.includes(String(cm.AUTHOR_ID)));
+          if (dm.length && dm[0].CREATED > c.lastDate) {
+            c.lastDate = dm[0].CREATED;
+            c.days = Math.floor((now - new Date(c.lastDate)) / 86400000);
+          }
         }
       } catch(e) {}
       done++;
@@ -242,7 +260,7 @@ async function loadData() {
 
   try {
     // Сделки нынешних и бывших менеджеров — история + последнее касание
-    const pastDeals = await paginateAll('crm.deal.list', {
+    pastDeals = await paginateAll('crm.deal.list', {
       filter: { CATEGORY_ID, ASSIGNED_BY_ID: ALL_GROUP_IDS },
       select: ['ID', 'COMPANY_ID', 'DATE_MODIFY', 'STAGE_SEMANTIC_ID'],
     });
