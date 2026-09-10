@@ -748,11 +748,11 @@ async function loadAnalytics() {
     });
     const relevant = companies.filter(c => companyIdsWithHistory.has(String(c.ID)));
 
-    // Активности (звонки, письма) напрямую по компаниям — менеджеры группы
+    // Активности по компаниям, контактам и сделкам — все параллельно
     const now = mskNow();
     const cutoffDate = new Date(now); cutoffDate.setDate(cutoffDate.getDate() - STALE_DAYS - 1);
     const cutoffStr = `${cutoffDate.getFullYear()}-${pad(cutoffDate.getMonth()+1)}-${pad(cutoffDate.getDate())}T00:00:00`;
-    const [compActs, contActs] = await Promise.all([
+    const [compActs, contActs, dealActs] = await Promise.all([
       paginateAll('crm.activity.list', {
         filter: { OWNER_TYPE_ID: 4, RESPONSIBLE_ID: DARYA_GROUP_IDS, '>=CREATED': cutoffStr },
         select: ['OWNER_ID', 'CREATED'], order: { CREATED: 'DESC' },
@@ -761,13 +761,16 @@ async function loadAnalytics() {
         filter: { OWNER_TYPE_ID: 3, RESPONSIBLE_ID: DARYA_GROUP_IDS, '>=CREATED': cutoffStr },
         select: ['OWNER_ID', 'CREATED'], order: { CREATED: 'DESC' },
       }),
+      paginateAll('crm.activity.list', {
+        filter: { OWNER_TYPE_ID: 2, RESPONSIBLE_ID: DARYA_GROUP_IDS, '>=CREATED': cutoffStr },
+        select: ['OWNER_ID', 'CREATED'], order: { CREATED: 'DESC' },
+      }),
     ]);
     const lastActTouch = {};
     for (const a of compActs) {
       const cid = String(a.OWNER_ID);
       if (!lastActTouch[cid] || a.CREATED > lastActTouch[cid]) lastActTouch[cid] = a.CREATED;
     }
-    // Звонки к контактам → маппим контакт → компания
     if (contActs.length) {
       const contIds = [...new Set(contActs.map(a => String(a.OWNER_ID)))];
       const contacts = await paginateAll('crm.contact.list', {
@@ -780,24 +783,19 @@ async function loadAnalytics() {
         if (!lastActTouch[cid] || a.CREATED > lastActTouch[cid]) lastActTouch[cid] = a.CREATED;
       }
     }
-
-    // Комментарии на стене компании — менеджеры группы
-    const wallComments = await paginateAll('crm.timeline.comment.list', {
-      filter: { ENTITY_TYPE: 'company', AUTHOR_ID: DARYA_GROUP_IDS, '>=CREATED': cutoffStr },
-      select: ['ENTITY_ID', 'CREATED'],
-      order: { CREATED: 'DESC' },
-    });
-    const lastWallTouch = {};
-    for (const w of wallComments) {
-      const cid = String(w.ENTITY_ID);
-      if (!lastWallTouch[cid] || w.CREATED > lastWallTouch[cid]) lastWallTouch[cid] = w.CREATED;
+    if (dealActs.length) {
+      const deal2co = {};
+      for (const d of pastDeals) { if (d.COMPANY_ID && d.COMPANY_ID !== '0') deal2co[String(d.ID)] = String(d.COMPANY_ID); }
+      for (const a of dealActs) {
+        const cid = deal2co[String(a.OWNER_ID)]; if (!cid) continue;
+        if (!lastActTouch[cid] || a.CREATED > lastActTouch[cid]) lastActTouch[cid] = a.CREATED;
+      }
     }
 
     const stale = [];
     for (const c of relevant) {
       const cid = String(c.ID);
-      // Берём самую позднюю дату из четырёх источников: активность, комментарий на стене, дата сделки, дата изменения карточки
-      const candidates = [lastActTouch[cid], lastWallTouch[cid], lastDealTouch[cid], c.DATE_MODIFY].filter(Boolean);
+      const candidates = [lastActTouch[cid], lastDealTouch[cid], c.DATE_MODIFY].filter(Boolean);
       if (!candidates.length) continue;
       const last = candidates.sort().reverse()[0];
       const days = Math.floor((now - new Date(last)) / 86400000);

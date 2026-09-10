@@ -166,6 +166,49 @@ function applyFilter(btn) {
   renderTable();
 }
 
+function updateSummary() {
+  const counts = {};
+  DARYA_GROUP_IDS.forEach(id => counts[id] = 0);
+  for (const c of allStale) { if (counts[c.mgrId] !== undefined) counts[c.mgrId]++; }
+  document.getElementById('sumTotal').textContent = allStale.length;
+  DARYA_GROUP_IDS.forEach(id => {
+    const el = document.getElementById('sum' + id);
+    if (el) el.textContent = counts[id];
+  });
+}
+
+async function refineWithComments(now, cutoffStr) {
+  const snapshot = [...allStale];
+  const total = snapshot.length;
+  const CHUNK = 6;
+  let done = 0;
+  const grp = c => c.wonCnt > 3 ? 0 : c.wonCnt >= 1 ? 1 : 2;
+
+  for (let i = 0; i < total; i += CHUNK) {
+    const chunk = snapshot.slice(i, Math.min(i + CHUNK, total));
+    await Promise.all(chunk.map(async (c) => {
+      try {
+        const resp = await bx('crm.timeline.comment.list', {
+          filter: { ENTITY_TYPE: 'company', ENTITY_ID: c.id, '>=CREATED': cutoffStr },
+          select: ['CREATED', 'AUTHOR_ID'], order: { CREATED: 'DESC' },
+        });
+        const recent = (resp.result || []).filter(cm => DARYA_GROUP_IDS.includes(String(cm.AUTHOR_ID)));
+        if (recent.length && recent[0].CREATED > c.lastDate) {
+          c.lastDate = recent[0].CREATED;
+          c.days = Math.floor((now - new Date(c.lastDate)) / 86400000);
+        }
+      } catch(e) {}
+      done++;
+    }));
+    allStale = snapshot.filter(c => c.days >= STALE_DAYS);
+    allStale.sort((a, b) => grp(a) - grp(b) || b.days - a.days);
+    updateSummary();
+    renderTable();
+    document.getElementById('metaLine').textContent = `Проверяем комментарии... ${done}/${total}`;
+    if (i + CHUNK < total) await sleep(300);
+  }
+}
+
 function renderTable() {
   const rows = activeFilter === 'all' ? allStale : allStale.filter(c => c.mgrId === activeFilter);
   if (!rows.length) {
@@ -226,13 +269,17 @@ async function loadData() {
     const now = mskNow();
     const cutoffDate = new Date(now); cutoffDate.setDate(cutoffDate.getDate() - STALE_DAYS - 1);
     const cutoffStr = `${cutoffDate.getFullYear()}-${pad(cutoffDate.getMonth()+1)}-${pad(cutoffDate.getDate())}T00:00:00`;
-    const [compActs, contActs] = await Promise.all([
+    const [compActs, contActs, dealActs] = await Promise.all([
       paginateAll('crm.activity.list', {
         filter: { OWNER_TYPE_ID: 4, RESPONSIBLE_ID: DARYA_GROUP_IDS, '>=CREATED': cutoffStr },
         select: ['OWNER_ID', 'CREATED'], order: { CREATED: 'DESC' },
       }),
       paginateAll('crm.activity.list', {
         filter: { OWNER_TYPE_ID: 3, RESPONSIBLE_ID: DARYA_GROUP_IDS, '>=CREATED': cutoffStr },
+        select: ['OWNER_ID', 'CREATED'], order: { CREATED: 'DESC' },
+      }),
+      paginateAll('crm.activity.list', {
+        filter: { OWNER_TYPE_ID: 2, RESPONSIBLE_ID: DARYA_GROUP_IDS, '>=CREATED': cutoffStr },
         select: ['OWNER_ID', 'CREATED'], order: { CREATED: 'DESC' },
       }),
     ]);
@@ -254,23 +301,20 @@ async function loadData() {
         if (!lastActTouch[cid] || a.CREATED > lastActTouch[cid]) lastActTouch[cid] = a.CREATED;
       }
     }
-
-    // Комментарии на стене компании — менеджеры группы
-    const wallComments = await paginateAll('crm.timeline.comment.list', {
-      filter: { ENTITY_TYPE: 'company', AUTHOR_ID: DARYA_GROUP_IDS, '>=CREATED': cutoffStr },
-      select: ['ENTITY_ID', 'CREATED'],
-      order: { CREATED: 'DESC' },
-    });
-    const lastWallTouch = {};
-    for (const w of wallComments) {
-      const cid = String(w.ENTITY_ID);
-      if (!lastWallTouch[cid] || w.CREATED > lastWallTouch[cid]) lastWallTouch[cid] = w.CREATED;
+    // Активности на сделках → компания
+    if (dealActs.length) {
+      const deal2co = {};
+      for (const d of pastDeals) { if (d.COMPANY_ID && d.COMPANY_ID !== '0') deal2co[String(d.ID)] = String(d.COMPANY_ID); }
+      for (const a of dealActs) {
+        const cid = deal2co[String(a.OWNER_ID)]; if (!cid) continue;
+        if (!lastActTouch[cid] || a.CREATED > lastActTouch[cid]) lastActTouch[cid] = a.CREATED;
+      }
     }
 
     allStale = [];
     for (const c of relevant) {
       const cid = String(c.ID);
-      const candidates = [lastActTouch[cid], lastDealTouch[cid], lastWallTouch[cid], c.DATE_MODIFY].filter(Boolean);
+      const candidates = [lastActTouch[cid], lastDealTouch[cid], c.DATE_MODIFY].filter(Boolean);
       if (!candidates.length) continue;
       candidates.sort();
       const lastDate = candidates[candidates.length - 1];
@@ -291,21 +335,17 @@ async function loadData() {
     const grp = c => c.wonCnt > 3 ? 0 : c.wonCnt >= 1 ? 1 : 2;
     allStale.sort((a, b) => grp(a) - grp(b) || b.days - a.days);
 
-    // Сводка
-    const counts = { '826': 0, '11574': 0, '12692': 0 };
-    for (const c of allStale) { if (counts[c.mgrId] !== undefined) counts[c.mgrId]++; }
-    document.getElementById('sumTotal').textContent = allStale.length;
-    document.getElementById('sum826').textContent = counts['826'];
-    document.getElementById('sum11574').textContent = counts['11574'];
-    document.getElementById('sum12692').textContent = counts['12692'];
+    updateSummary();
     document.getElementById('summaryBar').style.display = 'flex';
     document.getElementById('filterRow').style.display = 'flex';
+    renderTable();
+
+    // Уточняем: поштучно проверяем комментарии на стене компаний
+    await refineWithComments(now, cutoffStr);
 
     const d = mskNow();
     document.getElementById('metaLine').textContent =
       `Обновлено ${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} в ${pad(d.getHours())}:${pad(d.getMinutes())} МСК`;
-
-    renderTable();
   } catch(e) {
     document.getElementById('tableBody').innerHTML =
       `<tr><td colspan="5" class="err">Ошибка загрузки: ${e.message}</td></tr>`;
