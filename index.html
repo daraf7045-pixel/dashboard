@@ -643,44 +643,35 @@ let _stalePastDeals = [];
 async function refineStaleComments(now, cutoffStr) {
   const snapshot = [..._allStaleData];
   const total = snapshot.length;
-  const CHUNK = 6;
+  const BATCH = 25;
   let done = 0;
   const grp = c => c.wonCnt > 3 ? 0 : c.wonCnt >= 1 ? 1 : 2;
-  for (let i = 0; i < total; i += CHUNK) {
-    const chunk = snapshot.slice(i, Math.min(i + CHUNK, total));
-    await Promise.all(chunk.map(async (c) => {
-      try {
-        const resp = await bx('crm.timeline.comment.list', {
-          filter: { ENTITY_TYPE: 'company', ENTITY_ID: c.id, '>=CREATED': cutoffStr },
-          select: ['CREATED', 'AUTHOR_ID'], order: { CREATED: 'DESC' },
-        });
-        const recent = (resp.result || []).filter(cm => DARYA_GROUP_IDS.includes(String(cm.AUTHOR_ID)));
-        if (recent.length && recent[0].CREATED > c.lastDate) {
-          c.lastDate = recent[0].CREATED;
+  for (let i = 0; i < total; i += BATCH) {
+    const chunk = snapshot.slice(i, Math.min(i + BATCH, total));
+    const cmd = {};
+    chunk.forEach((c, idx) => {
+      cmd['c' + idx] = 'crm.timeline.comment.list?' + flatQS({
+        filter: { ENTITY_TYPE: 'company', ENTITY_ID: c.id, '>=CREATED': cutoffStr },
+        select: ['CREATED', 'AUTHOR_ID'], order: { CREATED: 'DESC' },
+      });
+    });
+    try {
+      const resp = await bx('batch', { cmd, halt: 0 });
+      const res = resp.result?.result || {};
+      chunk.forEach((c, idx) => {
+        const comments = (res['c' + idx] || []).filter(cm => DARYA_GROUP_IDS.includes(String(cm.AUTHOR_ID)));
+        if (comments.length && comments[0].CREATED > c.lastDate) {
+          c.lastDate = comments[0].CREATED;
           c.days = Math.floor((now - new Date(c.lastDate)) / 86400000);
         }
-        const dealIds = _stalePastDeals
-          .filter(d => String(d.COMPANY_ID) === String(c.id))
-          .map(d => String(d.ID)).slice(0, 5);
-        for (const did of dealIds) {
-          const dr = await bx('crm.timeline.comment.list', {
-            filter: { ENTITY_TYPE: 'deal', ENTITY_ID: did, '>=CREATED': cutoffStr },
-            select: ['CREATED', 'AUTHOR_ID'], order: { CREATED: 'DESC' },
-          });
-          const dm = (dr.result || []).filter(cm => DARYA_GROUP_IDS.includes(String(cm.AUTHOR_ID)));
-          if (dm.length && dm[0].CREATED > c.lastDate) {
-            c.lastDate = dm[0].CREATED;
-            c.days = Math.floor((now - new Date(c.lastDate)) / 86400000);
-          }
-        }
-      } catch(e) {}
-      done++;
-    }));
+        done++;
+      });
+    } catch(e) { done += chunk.length; }
     _allStaleData = snapshot.filter(c => c.days >= STALE_DAYS);
     _allStaleData.sort((a, b) => grp(a) - grp(b) || b.days - a.days);
     renderStaleTable();
     document.getElementById('staleNote').textContent = `Проверяем комментарии... ${done}/${total}`;
-    if (i + CHUNK < total) await new Promise(r => setTimeout(r, 300));
+    if (i + BATCH < total) await new Promise(r => setTimeout(r, 100));
   }
   document.getElementById('staleNote').textContent = `Компании без касаний ${STALE_DAYS}+ дней (только с историей у группы)`;
 }
