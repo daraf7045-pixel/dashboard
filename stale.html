@@ -361,6 +361,13 @@ async function loadData() {
   }
 }
 
+// Предустановка фильтра из URL: ?mgr=ID
+const _urlMgr = new URLSearchParams(location.search).get('mgr');
+if (_urlMgr) {
+  const _btn = document.querySelector(`.filter-btn[data-mgr="${_urlMgr}"]`);
+  if (_btn) { activeFilter = _urlMgr; document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b === _btn)); }
+}
+
 loadData();
 </script>
 </body>
