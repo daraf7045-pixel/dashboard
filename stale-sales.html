@@ -320,7 +320,7 @@ async function loadData() {
     allStale = [];
     for (const c of relevant) {
       const cid = String(c.ID);
-      const candidates = [lastActTouch[cid], lastDealTouch[cid], c.DATE_MODIFY].filter(Boolean);
+      const candidates = [lastActTouch[cid], lastDealTouch[cid]].filter(Boolean);
       if (!candidates.length) continue;
       candidates.sort();
       const lastDate = candidates[candidates.length - 1];

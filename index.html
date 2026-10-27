@@ -833,7 +833,7 @@ async function loadAnalytics() {
     const stale = [];
     for (const c of relevant) {
       const cid = String(c.ID);
-      const candidates = [lastActTouch[cid], lastDealTouch[cid], c.DATE_MODIFY].filter(Boolean);
+      const candidates = [lastActTouch[cid], lastDealTouch[cid]].filter(Boolean);
       if (!candidates.length) continue;
       const last = candidates.sort().reverse()[0];
       const days = Math.floor((now - new Date(last)) / 86400000);
