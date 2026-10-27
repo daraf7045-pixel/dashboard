@@ -56,9 +56,9 @@ tr:hover{background:#f8fafc}
 
   <div class="summary-bar" id="summaryBar" style="display:none">
     <div class="summary-card"><div class="lbl">Всего</div><div class="val" id="sumTotal">—</div></div>
-    <div class="summary-card"><div class="lbl">Анна</div><div class="val" id="sum12752">—</div></div>
+    <div class="summary-card"><div class="lbl">Анна</div><div class="val" id="sum20094">—</div></div>
     <div class="summary-card"><div class="lbl">Алина</div><div class="val" id="sum9174">—</div></div>
-    <div class="summary-card"><div class="lbl">Динара</div><div class="val" id="sum14262">—</div></div>
+    <div class="summary-card"><div class="lbl">Динара</div><div class="val" id="sum20626">—</div></div>
     <div class="summary-card"><div class="lbl">Дарья</div><div class="val" id="sum160">—</div></div>
   </div>
 
@@ -68,9 +68,9 @@ tr:hover{background:#f8fafc}
   <div class="filter-row" id="filterRow" style="display:none">
     <span style="font-size:12px;color:#64748b;margin-right:4px">Менеджер:</span>
     <button class="filter-btn active" data-mgr="all" onclick="applyFilter(this)">Все</button>
-    <button class="filter-btn" data-mgr="12752" onclick="applyFilter(this)">Анна</button>
+    <button class="filter-btn" data-mgr="20094" onclick="applyFilter(this)">Надежда</button>
     <button class="filter-btn" data-mgr="9174" onclick="applyFilter(this)">Алина</button>
-    <button class="filter-btn" data-mgr="14262" onclick="applyFilter(this)">Динара</button>
+    <button class="filter-btn" data-mgr="20626" onclick="applyFilter(this)">Анна М</button>
     <button class="filter-btn" data-mgr="160" onclick="applyFilter(this)">Дарья</button>
   </div>
 
@@ -95,9 +95,9 @@ const WH           = 'https://dcatering.bitrix24.ru/rest/160/ghlyw75jejp57sex';
 const CATEGORY_ID  = 4;
 const BX_DOMAIN    = 'dcatering.bitrix24.ru';
 const STALE_DAYS   = 45;
-const DARYA_GROUP_IDS   = ['12752', '9174', '14262', '160'];
-const DARYA_GROUP_NAMES = { '12752': 'Кирасирова Анна', '9174': 'Воронежцева Алина', '14262': 'Айсина Динара', '160': 'Федотова Дарья' };
-const FORMER_MGR_IDS    = ['10132', '1640', '7164'];
+const DARYA_GROUP_IDS   = ['20094', '9174', '20626', '160'];
+const DARYA_GROUP_NAMES = { '20094': 'Колмакова Надежда', '9174': 'Воронежцева Алина', '20626': 'Мамаева Анна', '160': 'Федотова Дарья' };
+const FORMER_MGR_IDS    = ['10132', '1640', '7164', '12752', '14262'];
 const ALL_GROUP_IDS     = [...DARYA_GROUP_IDS, ...FORMER_MGR_IDS];
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
