@@ -126,12 +126,12 @@ function flatQS(obj, prefix='') {
 
 async function bx(method, params={}, retries=6) {
   const qs = flatQS(params);
-  const url = `${WH}/${method}.json${qs ? '?'+qs : ''}`;
+  const url = `${WH}/${method}.json`;
   let delay = 1000;
   for (let i = 0; i < retries; i++) {
     try {
-      const r = await fetch(url, {cache: 'no-store'});
-      if (r.status === 429 || r.status === 503) { await sleep(delay); delay = Math.min(delay*2,30000); continue; }
+      const r = await fetch(url, {method: 'POST', body: new URLSearchParams(qs), cache: 'no-store', signal: AbortSignal.timeout(20000)});
+      if (r.status === 429 || r.status === 503) throw new Error(`Битрикс24 временно недоступен (HTTP ${r.status})`);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const d = await r.json();
       if (d.error) throw new Error(`Bitrix: ${d.error}`);
@@ -163,6 +163,13 @@ let pastDeals = [];
 let activeFilter = 'all';
 
 function applyFilter(btn) {
+  if (DARYA_GROUP_IDS.includes(_urlMgr) && btn.dataset.mgr !== _urlMgr) {
+    const url = new URL(location.href);
+    if (btn.dataset.mgr === 'all') url.searchParams.delete('mgr');
+    else url.searchParams.set('mgr', btn.dataset.mgr);
+    location.assign(url);
+    return;
+  }
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   activeFilter = btn.dataset.mgr;
@@ -249,11 +256,26 @@ async function loadData() {
   document.getElementById('metaLine').textContent = 'Загрузка...';
 
   try {
-    // Сделки нынешних и бывших менеджеров — история + последнее касание
-    pastDeals = await paginateAll('crm.deal.list', {
-      filter: { CATEGORY_ID, ASSIGNED_BY_ID: ALL_GROUP_IDS },
-      select: ['ID', 'COMPANY_ID', 'DATE_MODIFY', 'STAGE_SEMANTIC_ID'],
+    const managerIds = DARYA_GROUP_IDS.includes(_urlMgr) ? [_urlMgr] : DARYA_GROUP_IDS;
+    document.getElementById('metaLine').textContent = 'Загружаем компании…';
+    const companies = await paginateAll('crm.company.list', {
+      filter: { ASSIGNED_BY_ID: managerIds },
+      select: ['ID', 'TITLE', 'ASSIGNED_BY_ID'],
     });
+
+    document.getElementById('metaLine').textContent = 'Проверяем историю сделок…';
+    const dealFilter = { CATEGORY_ID, ASSIGNED_BY_ID: ALL_GROUP_IDS };
+    pastDeals = [];
+    const companyIds = companies.map(c => c.ID);
+    const chunkSize = managerIds.length === 1 ? 100 : companyIds.length;
+    for (let i = 0; i < companyIds.length; i += chunkSize) {
+      pastDeals.push(...await paginateAll('crm.deal.list', {
+        filter: managerIds.length === 1
+          ? { ...dealFilter, COMPANY_ID: companyIds.slice(i, i + chunkSize) }
+          : dealFilter,
+        select: ['ID', 'COMPANY_ID', 'DATE_MODIFY', 'STAGE_SEMANTIC_ID'],
+      }));
+    }
     const companyIdsWithHistory = new Set(
       pastDeals.map(d => String(d.COMPANY_ID)).filter(c => c && c !== 'null' && c !== '0')
     );
@@ -266,28 +288,24 @@ async function loadData() {
       if (d.STAGE_SEMANTIC_ID === 'S') wonCount[cid] = (wonCount[cid] || 0) + 1;
     }
 
-    // Компании нынешних менеджеров
-    const companies = await paginateAll('crm.company.list', {
-      filter: { ASSIGNED_BY_ID: DARYA_GROUP_IDS },
-      select: ['ID', 'TITLE', 'ASSIGNED_BY_ID', 'DATE_MODIFY'],
-    });
     const relevant = companies.filter(c => companyIdsWithHistory.has(String(c.ID)));
 
     // Активности по компаниям, контактам и сделкам — все параллельно
     const now = mskNow();
     const cutoffDate = new Date(now); cutoffDate.setDate(cutoffDate.getDate() - STALE_DAYS - 1);
     const cutoffStr = `${cutoffDate.getFullYear()}-${pad(cutoffDate.getMonth()+1)}-${pad(cutoffDate.getDate())}T00:00:00`;
+    document.getElementById('metaLine').textContent = 'Проверяем звонки и другие активности…';
     const [compActs, contActs, dealActs] = await Promise.all([
       paginateAll('crm.activity.list', {
-        filter: { OWNER_TYPE_ID: 4, RESPONSIBLE_ID: DARYA_GROUP_IDS, '>=CREATED': cutoffStr },
+        filter: { OWNER_TYPE_ID: 4, RESPONSIBLE_ID: managerIds, '>=CREATED': cutoffStr },
         select: ['OWNER_ID', 'CREATED'], order: { CREATED: 'DESC' },
       }),
       paginateAll('crm.activity.list', {
-        filter: { OWNER_TYPE_ID: 3, RESPONSIBLE_ID: DARYA_GROUP_IDS, '>=CREATED': cutoffStr },
+        filter: { OWNER_TYPE_ID: 3, RESPONSIBLE_ID: managerIds, '>=CREATED': cutoffStr },
         select: ['OWNER_ID', 'CREATED'], order: { CREATED: 'DESC' },
       }),
       paginateAll('crm.activity.list', {
-        filter: { OWNER_TYPE_ID: 2, RESPONSIBLE_ID: DARYA_GROUP_IDS, '>=CREATED': cutoffStr },
+        filter: { OWNER_TYPE_ID: 2, RESPONSIBLE_ID: managerIds, '>=CREATED': cutoffStr },
         select: ['OWNER_ID', 'CREATED'], order: { CREATED: 'DESC' },
       }),
     ]);
